@@ -51,7 +51,8 @@ public class DynamicRouteConfig implements ApplicationEventPublisherAware, Appli
 
     private Listener configListener;
 
-    private final Executor executor = Executors.newFixedThreadPool(2);
+    @org.springframework.beans.factory.annotation.Autowired
+    private java.util.concurrent.ExecutorService executor;
 
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {

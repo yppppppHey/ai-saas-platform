@@ -38,7 +38,9 @@ public class TaskExecutionEngine {
     @Autowired
     private TaskProgressService progressService;
 
-    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+    @org.springframework.beans.factory.annotation.Qualifier("taskExecutor")
+    @org.springframework.beans.factory.annotation.Autowired
+    private ExecutorService executorService;
 
     public void executeTask(TaskAsyncJob task) {
         String taskId = task.getTaskId();

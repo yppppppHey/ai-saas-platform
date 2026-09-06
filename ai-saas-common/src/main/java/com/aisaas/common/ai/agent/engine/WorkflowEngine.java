@@ -41,10 +41,14 @@ public class WorkflowEngine {
     private final StateMachine stateMachine = new StateMachine();
 
     // 线程池
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    @org.springframework.beans.factory.annotation.Qualifier("workflowExecutor")
+    @org.springframework.beans.factory.annotation.Autowired
+    private ExecutorService executorService;
 
     // 调度器
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
+    @org.springframework.beans.factory.annotation.Qualifier("workflowScheduler")
+    @org.springframework.beans.factory.annotation.Autowired
+    private ScheduledExecutorService scheduler;
 
     public WorkflowEngine() {
         initializeStateMachine();

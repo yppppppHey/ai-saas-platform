@@ -27,7 +27,9 @@ public class TaskProgressService {
     private RedisUtils redisUtils;
 
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(1);
+    @org.springframework.beans.factory.annotation.Qualifier("taskScheduler")
+    @org.springframework.beans.factory.annotation.Autowired
+    private ScheduledExecutorService heartbeatExecutor;
 
     public TaskProgressService() {
         heartbeatExecutor.scheduleAtFixedRate(this::sendHeartbeats, 30, 30, TimeUnit.SECONDS);

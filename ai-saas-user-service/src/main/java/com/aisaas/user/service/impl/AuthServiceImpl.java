@@ -150,9 +150,10 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
             return Result.success();
         }
 
-        // 将Token加入黑名单
-        String tokenKey = RedisKeys.TOKEN_BLACKLIST + token;
-        redisUtils.set(tokenKey, "1", jwtUtil.getExpiration(), TimeUnit.SECONDS);
+        // 将Token加入黑名单（键规则与网关 TokenBlacklistFilter 共用，必须一致）
+        String tokenKey = com.aisaas.common.util.TokenBlacklistSupport.blacklistKey(token);
+        long ttlSeconds = Math.max(jwtUtil.getExpiration(), 1L);
+        redisUtils.set(tokenKey, "1", ttlSeconds, TimeUnit.SECONDS);
 
         // 删除Token缓存
         String userTokenKey = RedisKeys.USER_TOKEN + jwtUtil.getUserIdFromToken(token);
@@ -250,8 +251,19 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
         user.setUpdatedAt(LocalDateTime.now());
         userAccountMapper.updateById(user);
 
-        // 将用户的所有Token加入黑名单，强制重新登录
-        // TODO: 实现Token黑名单
+        // 修改密码后强制下线：把该用户当前有效 token 拉黑（键规则与网关一致）
+        try {
+            String currentToken = (String) redisUtils.get(RedisKeys.USER_TOKEN + user.getId());
+            if (org.springframework.util.StringUtils.hasText(currentToken)) {
+                String blacklistKey = com.aisaas.common.util.TokenBlacklistSupport.blacklistKey(currentToken);
+                long ttlSeconds = Math.max(jwtUtil.getExpiration(), 1L);
+                redisUtils.set(blacklistKey, "1", ttlSeconds, TimeUnit.SECONDS);
+                redisUtils.delete(RedisKeys.USER_TOKEN + user.getId());
+                log.info("密码重置后已强制下线: userId={}", user.getId());
+            }
+        } catch (Exception e) {
+            log.warn("密码重置后强制下线失败(不影响重置结果): userId={}", user.getId(), e);
+        }
 
         log.info("密码重置成功: {}", email);
         return Result.success();

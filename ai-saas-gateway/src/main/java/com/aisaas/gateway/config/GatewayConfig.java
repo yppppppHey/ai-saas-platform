@@ -47,7 +47,8 @@ public class GatewayConfig {
 
     @Data
     public static class JwtConfig {
-        private String secret = "ai-saas-platform-jwt-secret-key-2024";
+        // 密钥不在此处定义: 统一由 jwt.secret / 环境变量 JWT_SECRET 提供
+        // (历史遗留的硬编码默认值已删除, 避免密钥泄漏与多来源不一致)
         private Long accessExpiration = 86400L;
         private Long refreshExpiration = 604800L;
         private String issuer = "ai-saas-platform";
