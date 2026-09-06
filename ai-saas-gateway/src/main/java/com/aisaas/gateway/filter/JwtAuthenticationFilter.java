@@ -97,12 +97,20 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             return unauthorized(response, "令牌类型不正确");
         }
 
-        // 8. 构建新的请求，添加用户信息到请求头
+        // 8. 构建新的请求：先剥掉外部请求可能伪造的身份头，再写入验签后的真实身份；
+        //    traceId 保留上游已有的(客户端/前置层生成)，没有才新生成，保证链路一致
         ServerHttpRequest mutatedRequest = request.mutate()
+                .headers(headers -> {
+                    headers.remove("X-User-Id");
+                    headers.remove("X-Username");
+                    headers.remove("X-User-Role");
+                    if (!headers.containsKey("X-Trace-Id")) {
+                        headers.set("X-Trace-Id", java.util.UUID.randomUUID().toString().replace("-", ""));
+                    }
+                })
                 .header("X-User-Id", String.valueOf(userId))
                 .header("X-Username", username != null ? username : "")
                 .header("X-User-Role", role != null ? role : "")
-                .header("X-Trace-Id", java.util.UUID.randomUUID().toString())
                 .build();
 
         log.debug("Authenticated user {} for path: {}", userId, path);
