@@ -1,0 +1,94 @@
+# =====================================================================
+# AI SaaS 平台本地基础设施
+# 用法:  docker compose up -d
+# 说明:  各微服务在宿主机上运行(IDEA/mvn)，通过 localhost 访问以下组件
+# =====================================================================
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: ai-saas-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      # 首次启动时按字母序自动执行：2 库 22 张表
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - mysql-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-saas-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: ai-saas-nacos
+    restart: unless-stopped
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+      TZ: Asia/Shanghai
+    ports:
+      - "8848:8848"   # HTTP 控制台/API
+      - "9848:9848"   # gRPC（客户端 2.x 必需，端口偏移 +1000）
+
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.1.4
+    container_name: ai-saas-rocketmq-namesrv
+    restart: unless-stopped
+    command: ["sh", "mqnamesrv"]
+    environment:
+      JAVA_OPT_EXT: "-Xms512m -Xmx512m"
+      TZ: Asia/Shanghai
+    ports:
+      - "9876:9876"
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.1.4
+    container_name: ai-saas-rocketmq-broker
+    restart: unless-stopped
+    depends_on:
+      - rocketmq-namesrv
+    command: ["sh", "mqbroker", "-c", "/home/rocketmq/conf/broker.conf"]
+    environment:
+      JAVA_OPT_EXT: "-Xms512m -Xmx512m -Xmn128m"
+      TZ: Asia/Shanghai
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+      - "10912:10912"
+    volumes:
+      - ./docker/rocketmq/broker.conf:/home/rocketmq/conf/broker.conf:ro
+
+  qdrant:
+    image: qdrant/qdrant:v1.11.0
+    container_name: ai-saas-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # HTTP
+      - "6334:6334"   # gRPC（Java 客户端使用）
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+volumes:
+  mysql-data:
+  redis-data:
+  qdrant-data:

@@ -65,3 +65,10 @@ logging:
     com.aisaas.billing: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# RocketMQ（计费链路消费端）
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
+  producer:
+    group: billing-producer-group
+    send-message-timeout: 3000

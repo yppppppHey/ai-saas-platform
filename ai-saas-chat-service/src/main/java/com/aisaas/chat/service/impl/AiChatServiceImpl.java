@@ -45,6 +45,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public class AiChatServiceImpl implements AiChatService {
 
     private final ChatMessageMapper messageMapper;
+
+    private final com.aisaas.chat.mq.TokenUsageProducer tokenUsageProducer;
     private final ChatConversationMapper conversationMapper;
     private final AIProviderFactory aiProviderFactory;
 
@@ -176,6 +178,29 @@ public class AiChatServiceImpl implements AiChatService {
         // 更新会话的token统计
         conversationMapper.incrementTokenUsage(conversationId,
                 (inputTokens != null ? inputTokens : 0) + (outputTokens != null ? outputTokens : 0));
+
+        // 跨服务计费：发 MQ 通知 billing 记账（异步、可对账，失败不影响对话主链路）
+        try {
+            ChatMessage sent = messageMapper.selectById(messageId);
+            com.aisaas.common.mq.message.TokenUsageMessage usageMsg =
+                    com.aisaas.common.mq.message.TokenUsageMessage.builder()
+                            .usageId(java.util.UUID.randomUUID().toString())
+                            .userId(sent != null ? sent.getUserId() : null)
+                            .conversationId(conversationId)
+                            .messageId(messageId)
+                            .provider("openai")
+                            .modelId(model)
+                            .operationType("chat")
+                            .promptTokens(inputTokens)
+                            .completionTokens(outputTokens)
+                            .totalTokens((inputTokens != null ? inputTokens : 0)
+                                    + (outputTokens != null ? outputTokens : 0))
+                            .build();
+            tokenUsageProducer.send(usageMsg);
+        } catch (Exception e) {
+            log.warn("发送Token用量消息失败, 等待对账补偿: conversationId={}, messageId={}",
+                    conversationId, messageId, e);
+        }
     }
 
     @Override

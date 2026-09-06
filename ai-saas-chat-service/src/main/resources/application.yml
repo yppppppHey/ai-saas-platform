@@ -7,7 +7,7 @@ spring:
 
   # 数据源配置
   datasource:
-    url: jdbc:mysql://localhost:3306/ai_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ai_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -23,7 +23,7 @@ spring:
     redis:
       mode: single
       host: localhost
-      port: 6379
+      port: ${REDIS_PORT:6379}
       password:
       database: 0
       timeout: 60000
@@ -38,7 +38,7 @@ spring:
     stream:
       rocketmq:
         binder:
-          name-server: localhost:9876
+          name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
       bindings:
         output:
           destination: chat-message-topic
@@ -72,3 +72,10 @@ logging:
   level:
     com.aisaas: debug
     org.springframework.web: info
+
+# RocketMQ（计费链路生产端，RocketMQTemplate 使用）
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
+  producer:
+    group: chat-producer-group
+    send-message-timeout: 3000

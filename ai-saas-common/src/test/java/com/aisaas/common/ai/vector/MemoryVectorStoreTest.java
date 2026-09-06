@@ -1,5 +1,7 @@
 package com.aisaas.common.ai.vector;
 
+import com.aisaas.common.ai.vector.VectorStore;
+import com.aisaas.common.ai.vector.VectorStore.VectorRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

@@ -9,6 +9,7 @@ import com.aisaas.billing.service.TokenUsageService;
 import com.aisaas.common.result.Result;
 import com.aisaas.common.constant.ResultCode;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -67,6 +68,55 @@ public class TokenUsageServiceImpl implements TokenUsageService {
             return Result.success();
         } catch (Exception e) {
             log.error("记录Token使用失败", e);
+            return Result.error(ResultCode.SYSTEM_ERROR, "记录Token使用失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 幂等记录 Token 使用（供 MQ 消费端调用）
+     *
+     * 三重防重：
+     * 1. 调用方 IdempotentMessageHandler 的 Redis 标记（拦截重复投递）
+     * 2. 按 usageId 查库（拦截 Redis 标记过期的极端情况）
+     * 3. billing_token_usage.uk_usage_id 唯一键（并发兜底，冲突视为成功）
+     */
+    public Result<Void> recordTokenUsageIdempotent(TokenUsageRecordDTO dto, String usageId) {
+        // 2. DB 查重（usage_id 唯一键的前置检查，减少冲突异常）
+        LambdaQueryWrapper<TokenUsageRecord> dupWrapper = new LambdaQueryWrapper<>();
+        dupWrapper.eq(TokenUsageRecord::getUsageId, usageId);
+        if (tokenUsageRecordMapper.selectCount(dupWrapper) > 0) {
+            log.info("Token使用记录已存在(幂等命中), usageId={}", usageId);
+            return Result.success();
+        }
+
+        try {
+            CostCalculationResult costResult = calculateCostInternal(dto.getProvider(), dto.getModelId(),
+                    dto.getOperationType(), dto.getPromptTokens(), dto.getCompletionTokens());
+
+            TokenUsageRecord record = new TokenUsageRecord();
+            BeanUtils.copyProperties(dto, record);
+            record.setUsageId(usageId);  // 关键：沿用消息携带的幂等键
+            record.setPromptCost(costResult.getPromptCost());
+            record.setCompletionCost(costResult.getCompletionCost());
+            record.setTotalCost(costResult.getTotalCost());
+            record.setCostCny(costResult.getTotalCost().multiply(new BigDecimal("7.2")));
+            record.setExchangeRate(new BigDecimal("7.2"));
+            record.setIsBilled(1);
+            record.setBilledAt(LocalDateTime.now());
+            record.setUsageDate(LocalDate.now());
+            record.setUsageHour(LocalDateTime.now().getHour());
+            record.setCreatedAt(LocalDateTime.now());
+
+            tokenUsageRecordMapper.insert(record);
+            log.info("Token使用记录已入账: usageId={}, userId={}, totalTokens={}",
+                    usageId, record.getUserId(), record.getTotalTokens());
+            return Result.success();
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 3. 唯一键冲突 = 并发重复消费，视为成功
+            log.info("Token使用记录并发重复(唯一键兜底), usageId={}", usageId);
+            return Result.success();
+        } catch (Exception e) {
+            log.error("记录Token使用失败, usageId={}", usageId, e);
             return Result.error(ResultCode.SYSTEM_ERROR, "记录Token使用失败: " + e.getMessage());
         }
     }
