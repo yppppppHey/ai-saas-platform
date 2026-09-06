@@ -89,3 +89,16 @@ ai:
       gpt-4-turbo: gpt-3.5-turbo,deepseek-chat
       gpt-3.5-turbo: deepseek-chat
       deepseek-chat: gpt-3.5-turbo
+
+# 运行监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true

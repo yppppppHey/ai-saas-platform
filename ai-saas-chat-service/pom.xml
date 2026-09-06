@@ -90,6 +90,12 @@
             <artifactId>ai-saas-common</artifactId>
         </dependency>
 
+        <!-- 运行监控(健康检查/指标, 供运维与后续 K8s 探针使用) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
