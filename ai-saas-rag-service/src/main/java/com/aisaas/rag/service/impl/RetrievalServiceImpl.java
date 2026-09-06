@@ -3,7 +3,7 @@ package com.aisaas.rag.service.impl;
 import com.aisaas.common.ai.dto.EmbeddingRequest;
 import com.aisaas.common.ai.dto.EmbeddingResponse;
 import com.aisaas.common.ai.provider.AIProvider;
-import com.aisaas.common.ai.provider.factory.AIProviderFactory;
+import com.aisaas.common.ai.provider.AIProviderFactory;
 import com.aisaas.common.ai.rag.RagService;
 import com.aisaas.common.ai.vector.VectorStore;
 import com.aisaas.common.result.Result;

@@ -79,3 +79,13 @@ rocketmq:
   producer:
     group: chat-producer-group
     send-message-timeout: 3000
+
+# 模型智能路由与故障降级
+ai:
+  failover:
+    default: deepseek-chat
+    chains:
+      gpt-4: gpt-3.5-turbo,deepseek-chat
+      gpt-4-turbo: gpt-3.5-turbo,deepseek-chat
+      gpt-3.5-turbo: deepseek-chat
+      deepseek-chat: gpt-3.5-turbo

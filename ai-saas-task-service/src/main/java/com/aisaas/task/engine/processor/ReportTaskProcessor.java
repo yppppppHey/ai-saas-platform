@@ -3,7 +3,7 @@ package com.aisaas.task.engine.processor;
 import com.aisaas.common.ai.dto.ChatRequest;
 import com.aisaas.common.ai.dto.ChatResponse;
 import com.aisaas.common.ai.provider.AIProvider;
-import com.aisaas.common.ai.provider.factory.AIProviderFactory;
+import com.aisaas.common.ai.provider.AIProviderFactory;
 import com.aisaas.common.util.JsonUtils;
 import com.aisaas.task.engine.context.TaskExecutionContext;
 import lombok.extern.slf4j.Slf4j;

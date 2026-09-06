@@ -47,6 +47,8 @@ public class AiChatServiceImpl implements AiChatService {
     private final ChatMessageMapper messageMapper;
 
     private final com.aisaas.chat.mq.TokenUsageProducer tokenUsageProducer;
+
+    private final com.aisaas.chat.service.ModelFailoverService modelFailoverService;
     private final ChatConversationMapper conversationMapper;
     private final AIProviderFactory aiProviderFactory;
 
@@ -119,9 +121,9 @@ public class AiChatServiceImpl implements AiChatService {
                 .stream(false)
                 .build();
 
-        // 调用AI
+        // 调用AI（带故障降级：主模型失败自动切换备选模型）
         long startTime = System.currentTimeMillis();
-        ChatResponse response = provider.chat(chatRequest);
+        ChatResponse response = modelFailoverService.chatWithFailover(conversation.getProvider(), chatRequest);
         long totalTime = System.currentTimeMillis() - startTime;
 
         // 处理结果
@@ -139,8 +141,9 @@ public class AiChatServiceImpl implements AiChatService {
                 userMessage.getId(), aiContent, model, provider.getProviderName(),
                 inputTokens, outputTokens, totalTime);
 
-        // 记录Token使用
-        recordTokenUsage(request.getConversationId(), aiMessage.getId(), inputTokens, outputTokens, model);
+        // 记录Token使用（降级后实际模型可能与请求不同，按响应里的真实模型计费）
+        recordTokenUsage(request.getConversationId(), aiMessage.getId(), inputTokens, outputTokens,
+                StringUtils.hasText(response.getModel()) ? response.getModel() : model);
 
         // 更新会话统计
         updateConversationStats(request.getConversationId());
@@ -182,13 +185,16 @@ public class AiChatServiceImpl implements AiChatService {
         // 跨服务计费：发 MQ 通知 billing 记账（异步、可对账，失败不影响对话主链路）
         try {
             ChatMessage sent = messageMapper.selectById(messageId);
+            // 按实际使用的模型解析 Provider（降级链可能跨服务商）
+            AIProvider usedProvider = aiProviderFactory.getProviderByModel(
+                    StringUtils.hasText(model) ? model : "gpt-3.5-turbo");
             com.aisaas.common.mq.message.TokenUsageMessage usageMsg =
                     com.aisaas.common.mq.message.TokenUsageMessage.builder()
                             .usageId(java.util.UUID.randomUUID().toString())
                             .userId(sent != null ? sent.getUserId() : null)
                             .conversationId(conversationId)
                             .messageId(messageId)
-                            .provider("openai")
+                            .provider(usedProvider != null ? usedProvider.getProviderName() : "openai")
                             .modelId(model)
                             .operationType("chat")
                             .promptTokens(inputTokens)
