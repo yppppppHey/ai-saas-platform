@@ -1,7 +1,7 @@
 package com.aisaas.common.ai.agent.node;
 
 import com.aisaas.common.ai.agent.tool.ToolRegistry;
-import com.aisaas.common.ai.provider.factory.AIProviderFactory;
+import com.aisaas.common.ai.provider.AIProviderFactory;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

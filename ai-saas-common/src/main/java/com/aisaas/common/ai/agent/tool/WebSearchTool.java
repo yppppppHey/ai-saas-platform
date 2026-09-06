@@ -3,7 +3,7 @@ package com.aisaas.common.ai.agent.tool;
 import com.aisaas.common.ai.dto.ChatRequest;
 import com.aisaas.common.ai.dto.ChatResponse;
 import com.aisaas.common.ai.provider.AIProvider;
-import com.aisaas.common.ai.provider.factory.AIProviderFactory;
+import com.aisaas.common.ai.provider.AIProviderFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

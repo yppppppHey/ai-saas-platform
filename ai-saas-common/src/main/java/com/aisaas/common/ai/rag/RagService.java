@@ -5,7 +5,7 @@ import com.aisaas.common.ai.dto.ChatResponse;
 import com.aisaas.common.ai.prompt.PromptTemplate;
 import com.aisaas.common.ai.prompt.PromptTemplateManager;
 import com.aisaas.common.ai.provider.AIProvider;
-import com.aisaas.common.ai.provider.factory.AIProviderFactory;
+import com.aisaas.common.ai.provider.AIProviderFactory;
 import com.aisaas.common.ai.vector.VectorStore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
