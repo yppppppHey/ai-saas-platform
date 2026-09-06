@@ -47,10 +47,11 @@ spring:
         max-wait: 1000ms
 
 jwt:
-  secret: your-secret-key-here-must-be-at-least-256-bits-for-hs256
-  accessExpiration: 86400
-  refreshExpiration: 604800
-  issuer: ai-saas-platform
+  # 必须与 gateway 的 jwt.secret 保持同一来源(JWT_SECRET)，否则签发的 token 网关验签必失败
+  secret: ${JWT_SECRET:ai-saas-platform-jwt-secret-key-2024}
+  accessExpiration: ${JWT_ACCESS_EXPIRATION:86400}
+  refreshExpiration: ${JWT_REFRESH_EXPIRATION:604800}
+  issuer: ${JWT_ISSUER:ai-saas-platform}
 
 logging:
   level:

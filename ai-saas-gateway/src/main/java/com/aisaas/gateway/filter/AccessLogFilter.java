@@ -100,8 +100,16 @@ public class AccessLogFilter implements GlobalFilter, Ordered {
             }
         };
 
+        // 把 traceId 写入下游请求头（服务端 TraceIdFilter 会读取并放入 MDC）
+        ServerHttpRequest tracedRequest = request.mutate()
+                .header("X-Trace-Id", traceId)
+                .build();
+
         // 正常处理请求
-        return chain.filter(exchange.mutate().response(decoratedResponse).build())
+        return chain.filter(exchange.mutate()
+                .request(tracedRequest)
+                .response(decoratedResponse)
+                .build())
                 .doFinally(signalType -> {
                     // 确保即使响应没有被writeWith处理，也能记录日志
                     if (!exchange.getAttributes().containsKey("access_logged")) {

@@ -113,21 +113,28 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     /**
      * 检查是否是白名单路径
+     * 该方法用于判断请求路径是否在白名单中，如果在白名单中则允许访问
+     *
+     * @param path 需要检查的请求路径
+     * @return 如果路径在白名单中返回true，否则返回false
      */
     private boolean isWhiteListPath(String path) {
+        // 从网关配置中获取白名单列表
         List<String> whiteList = gatewayConfig.getWhiteList();
+        // 如果配置中的白名单为空，则使用默认白名单
         if (CollectionUtils.isEmpty(whiteList)) {
-            // 默认白名单
+            // 默认白名单，包含一些不需要验证的路径，如认证接口、注册接口、健康检查接口等
             whiteList = List.of(
-                    "/api/v1/auth/**",
-                    "/api/v1/users/register",
-                    "/actuator/**",
-                    "/health",
-                    "/swagger-ui/**",
-                    "/v3/api-docs/**"
+                    "/api/v1/auth/**",      // 认证相关接口
+                    "/api/v1/users/register", // 用户注册接口
+                    "/actuator/**",         // Spring Boot Actuator监控端点
+                    "/health",              // 健康检查接口
+                    "/swagger-ui/**",       // Swagger UI文档
+                    "/v3/api-docs/**"       // OpenAPI文档
             );
         }
 
+        // 使用路径匹配器检查当前路径是否匹配白名单中的任意一个模式
         return whiteList.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
     }
 

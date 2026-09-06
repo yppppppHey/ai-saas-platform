@@ -201,6 +201,7 @@ public class AiChatServiceImpl implements AiChatService {
                             .completionTokens(outputTokens)
                             .totalTokens((inputTokens != null ? inputTokens : 0)
                                     + (outputTokens != null ? outputTokens : 0))
+                            .traceId(org.slf4j.MDC.get(com.aisaas.common.web.TraceIdFilter.MDC_KEY))
                             .build();
             tokenUsageProducer.send(usageMsg);
         } catch (Exception e) {
@@ -306,8 +307,11 @@ public class AiChatServiceImpl implements AiChatService {
             AtomicInteger inputTokens = new AtomicInteger(0);
             AtomicInteger outputTokens = new AtomicInteger(0);
 
-            // 执行流式对话
-            provider.streamChat(chatRequest)
+            // 执行流式对话（带故障降级：首 token 前失败自动切换备选模型）
+            java.util.concurrent.atomic.AtomicReference<String> actualModelRef =
+                    new java.util.concurrent.atomic.AtomicReference<>(model);
+            java.util.concurrent.atomic.AtomicReference<String> actualProviderRef = new java.util.concurrent.atomic.AtomicReference<>();
+            modelFailoverService.streamChatWithFailover(conversation.getProvider(), chatRequest)
                     .takeWhile(response -> !stopFlag.get())
                     .doOnNext(response -> {
                         if (!firstTokenReceived.get()) {
@@ -333,6 +337,13 @@ public class AiChatServiceImpl implements AiChatService {
                             inputTokens.set(response.getUsage().getPromptTokens());
                             outputTokens.set(response.getUsage().getCompletionTokens());
                         }
+                        // 捕获实际服务的模型/服务商（降级后与请求不同）
+                        if (StringUtils.hasText(response.getModel())) {
+                            actualModelRef.set(response.getModel());
+                        }
+                        if (StringUtils.hasText(response.getProvider())) {
+                            actualProviderRef.set(response.getProvider());
+                        }
                     })
                     .doOnComplete(() -> {
                         long totalTime = System.currentTimeMillis() - startTime;
@@ -341,9 +352,9 @@ public class AiChatServiceImpl implements AiChatService {
                         updateAiMessage(aiMessage.getId(), fullContent.toString(), model,
                                 inputTokens.get(), outputTokens.get(), totalTime, firstTokenTime.get());
 
-                        // 记录token使用
+                        // 记录token使用（按实际服务的模型计价）
                         recordTokenUsage(request.getConversationId(), aiMessage.getId(),
-                                inputTokens.get(), outputTokens.get(), model);
+                                inputTokens.get(), outputTokens.get(), actualModelRef.get());
 
                         // 更新会话统计
                         updateConversationStats(request.getConversationId());
@@ -354,7 +365,7 @@ public class AiChatServiceImpl implements AiChatService {
                                 .conversationId(request.getConversationId())
                                 .type("complete")
                                 .fullContent(fullContent.toString())
-                                .model(model)
+                                .model(actualModelRef.get())
                                 .inputTokens(inputTokens.get())
                                 .outputTokens(outputTokens.get())
                                 .totalTokens(inputTokens.get() + outputTokens.get())

@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -31,6 +32,9 @@ public class QuotaServiceImpl implements QuotaService {
 
     @Autowired
     private QuotaConfigMapper quotaConfigMapper;
+
+    @Autowired
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
     @Autowired
     private QuotaRecordMapper quotaRecordMapper;
@@ -329,7 +333,18 @@ public class QuotaServiceImpl implements QuotaService {
     @Transactional(rollbackFor = Exception.class)
     public Result<QuotaDeductResultVO> deductQuota(Long userId, Integer quotaType, Long amount, String bizType, String bizId) {
         try {
-            // 先检查配额
+            // 1. 业务幂等：同一业务动作(bizType+bizId)只允许扣一次，MQ 重投/用户重试不会重复扣
+            if (StringUtils.hasText(bizId)) {
+                String dedupKey = "billing:quota:dedup:" + bizType + ":" + bizId;
+                Boolean first = stringRedisTemplate.opsForValue()
+                        .setIfAbsent(dedupKey, "1", java.time.Duration.ofHours(24));
+                if (!Boolean.TRUE.equals(first)) {
+                    log.info("配额扣减重复请求(幂等命中): bizType={}, bizId={}", bizType, bizId);
+                    return Result.error(ResultCode.BUSINESS_ERROR, "重复的扣减请求");
+                }
+            }
+
+            // 2. 友好提示用的预检查（真正的并发安全由下面 CAS 保证）
             Result<QuotaCheckResultVO> checkResult = checkQuota(userId, quotaType, amount);
             if (!checkResult.isSuccess()) {
                 return Result.error(checkResult.getCode(), checkResult.getMessage());
@@ -338,10 +353,13 @@ public class QuotaServiceImpl implements QuotaService {
                 return Result.error(ResultCode.BUSINESS_ERROR, checkResult.getData().getReason());
             }
 
-            // 扣减配额
-            int rows = quotaRecordMapper.increaseUsage(userId, quotaType, amount);
+            // 3. CAS 扣减：条件更新保证"检查+扣减"原子性，高并发不会扣超
+            int rows = quotaRecordMapper.deductUsageAtomic(userId, quotaType, amount);
             if (rows == 0) {
-                return Result.error(ResultCode.BUSINESS_ERROR, "配额扣减失败，配额记录不存在");
+                // 区分"记录不存在"与"并发下配额已被扣完"
+                boolean exists = quotaRecordMapper.countByUserAndType(userId, quotaType) > 0;
+                return Result.error(ResultCode.BUSINESS_ERROR,
+                        exists ? "配额不足(并发校验)" : "配额记录不存在");
             }
 
             QuotaDeductResultVO vo = new QuotaDeductResultVO();
@@ -395,8 +413,8 @@ public class QuotaServiceImpl implements QuotaService {
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> rollbackQuota(Long userId, Integer quotaType, Long amount, String bizType, String bizId) {
         try {
-            // 回滚配额
-            int rows = quotaRecordMapper.increaseUsage(userId, quotaType, -amount);
+            // 回滚配额（GREATEST 防止异常数据扣成负数）
+            int rows = quotaRecordMapper.refundUsage(userId, quotaType, amount);
             if (rows == 0) {
                 return Result.error(ResultCode.BUSINESS_ERROR, "配额回滚失败，配额记录不存在");
             }
