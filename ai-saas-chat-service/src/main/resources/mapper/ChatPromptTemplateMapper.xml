@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aisaas.chat.mapper.ChatPromptTemplateMapper">
+
+    <!-- 基础结果映射 -->
+    <resultMap id="BaseResultMap" type="com.aisaas.chat.entity.ChatPromptTemplate">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="content" property="content"/>
+        <result column="variables" property="variables"/>
+        <result column="template_type" property="templateType"/>
+        <result column="category" property="category"/>
+        <result column="is_builtin" property="isBuiltin"/>
+        <result column="creator_id" property="creatorId"/>
+        <result column="usage_count" property="usageCount"/>
+        <result column="status" property="status"/>
+        <result column="extras" property="extras"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, name, description, content, variables, template_type, category, 
+        is_builtin, creator_id, usage_count, status, extras, 
+        created_at, updated_at, is_deleted
+    </sql>
+
+    <!-- 分页查询提示词模板 -->
+    <select id="selectTemplatePage" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM chat_prompt_template
+        <where>
+            is_deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%') 
+                    OR description LIKE CONCAT('%', #{keyword}, '%')
+                    OR content LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="category != null and category != ''">
+                AND category = #{category}
+            </if>
+            <if test="templateType != null and templateType != ''">
+                AND template_type = #{templateType}
+            </if>
+            <if test="isBuiltin != null">
+                AND is_builtin = #{isBuiltin}
+            </if>
+        </where>
+        ORDER BY is_builtin DESC, usage_count DESC, created_at DESC
+    </select>
+
+    <!-- 查询内置模板列表 -->
+    <select id="selectBuiltinTemplates" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM chat_prompt_template
+        WHERE is_builtin = 1 AND status = 1 AND is_deleted = 0
+        ORDER BY usage_count DESC
+    </select>
+
+    <!-- 查询用户的自定义模板 -->
+    <select id="selectUserTemplates" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM chat_prompt_template
+        WHERE creator_id = #{userId} AND is_builtin = 0 AND is_deleted = 0
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 根据分类查询模板 -->
+    <select id="selectByCategory" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM chat_prompt_template
+        WHERE category = #{category} AND status = 1 AND is_deleted = 0
+        ORDER BY usage_count DESC
+    </select>
+
+    <!-- 增加使用次数 -->
+    <update id="incrementUsageCount">
+        UPDATE chat_prompt_template 
+        SET usage_count = usage_count + 1, updated_at = NOW() 
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据名称查询模板（检查重复） -->
+    <select id="selectByName" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM chat_prompt_template
+        WHERE name = #{name} AND is_deleted = 0
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+        LIMIT 1
+    </select>
+
+    <!-- 查询分类列表 -->
+    <select id="selectCategories" resultType="java.lang.String">
+        SELECT DISTINCT category 
+        FROM chat_prompt_template 
+        WHERE category IS NOT NULL AND category != '' AND is_deleted = 0
+        ORDER BY category
+    </select>
+
+</mapper>

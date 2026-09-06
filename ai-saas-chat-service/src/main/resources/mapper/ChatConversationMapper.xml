@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aisaas.chat.mapper.ChatConversationMapper">
+
+    <resultMap id="BaseResultMap" type="com.aisaas.chat.entity.ChatConversation">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="title" property="title"/>
+        <result column="model" property="model"/>
+        <result column="provider" property="provider"/>
+        <result column="system_prompt" property="systemPrompt"/>
+        <result column="is_pinned" property="isPinned"/>
+        <result column="is_archived" property="isArchived"/>
+        <result column="message_count" property="messageCount"/>
+        <result column="token_usage" property="tokenUsage"/>
+        <result column="last_message_at" property="lastMessageAt"/>
+        <result column="last_message_preview" property="lastMessagePreview"/>
+        <result column="status" property="status"/>
+        <result column="extras" property="extras"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, title, model, provider, system_prompt, is_pinned, is_archived,
+        message_count, token_usage, last_message_at, last_message_preview, status,
+        extras, created_at, updated_at, is_deleted
+    </sql>
+
+    <select id="selectConversationPage" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM chat_conversation
+        WHERE is_deleted = 0
+        <if test="userId != null">
+            AND user_id = #{userId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (title LIKE CONCAT('%', #{keyword}, '%')
+            OR last_message_preview LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="isArchived != null">
+            AND is_archived = #{isArchived}
+        </if>
+        ORDER BY is_pinned DESC, last_message_at DESC
+    </select>
+
+    <select id="selectBatchIdsWithDeleted" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM chat_conversation
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+</mapper>

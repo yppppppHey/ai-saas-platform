@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: ai-saas-task-service
+  cloud:
+    nacos:
+      config:
+        enabled: true
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        file-extension: yml
+        prefix: ${spring.application.name}
+        refresh-enabled: true
+      discovery:
+        enabled: true
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}

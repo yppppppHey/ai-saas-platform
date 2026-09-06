@@ -1,0 +1,339 @@
+server:
+  port: 8080
+  ssl:
+    enabled: false  # 生产环境应启用HTTPS
+
+spring:
+  application:
+    name: ai-saas-gateway
+  main:
+    web-application-type: reactive
+    allow-bean-definition-overriding: true
+  cloud:
+    gateway:
+      enabled: true
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 60s
+        pool:
+          type: elastic
+          max-connections: 1000
+          max-idle-time: 10s
+          max-life-time: 60s
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+          filters:
+            - StripPrefix=1
+      routes:
+        # 用户服务路由
+        - id: user-service
+          uri: lb://ai-saas-user-service
+          predicates:
+            - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/roles/**, /api/v1/permissions/**
+          filters:
+            - StripPrefix=0
+            - name: Retry
+              args:
+                retries: 3
+                statuses: SERVICE_UNAVAILABLE
+                methods: GET
+            - name: CircuitBreaker
+              args:
+                name: userServiceCircuitBreaker
+                fallbackUri: forward:/fallback/user
+
+        # 对话服务路由
+        - id: chat-service
+          uri: lb://ai-saas-chat-service
+          predicates:
+            - Path=/api/v1/chat/**, /api/v1/conversations/**, /api/v1/messages/**
+          filters:
+            - StripPrefix=0
+            - name: Retry
+              args:
+                retries: 3
+                statuses: SERVICE_UNAVAILABLE
+                methods: GET,POST
+            - name: CircuitBreaker
+              args:
+                name: chatServiceCircuitBreaker
+                fallbackUri: forward:/fallback/chat
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@userRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
+
+        # 任务服务路由
+        - id: task-service
+          uri: lb://ai-saas-task-service
+          predicates:
+            - Path=/api/v1/tasks/**
+          filters:
+            - StripPrefix=0
+            - name: Retry
+              args:
+                retries: 3
+                statuses: SERVICE_UNAVAILABLE
+                methods: GET,POST,PUT
+            - name: CircuitBreaker
+              args:
+                name: taskServiceCircuitBreaker
+                fallbackUri: forward:/fallback/task
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@userRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
+
+        # RAG服务路由
+        - id: rag-service
+          uri: lb://ai-saas-rag-service
+          predicates:
+            - Path=/api/v1/kb/**, /api/v1/documents/**
+          filters:
+            - StripPrefix=0
+            - name: Retry
+              args:
+                retries: 3
+                statuses: SERVICE_UNAVAILABLE
+                methods: GET,POST
+            - name: CircuitBreaker
+              args:
+                name: ragServiceCircuitBreaker
+                fallbackUri: forward:/fallback/rag
+
+        # 计费服务路由
+        - id: billing-service
+          uri: lb://ai-saas-billing-service
+          predicates:
+            - Path=/api/v1/billing/**, /api/v1/quota/**, /api/v1/token/**
+          filters:
+            - StripPrefix=0
+            - name: Retry
+              args:
+                retries: 3
+                statuses: SERVICE_UNAVAILABLE
+                methods: GET
+            - name: CircuitBreaker
+              args:
+                name: billingServiceCircuitBreaker
+                fallbackUri: forward:/fallback/billing
+
+        # 管理服务路由
+        - id: admin-service
+          uri: lb://ai-saas-admin-service
+          predicates:
+            - Path=/api/v1/admin/**
+          filters:
+            - StripPrefix=0
+            - name: Retry
+              args:
+                retries: 3
+                statuses: SERVICE_UNAVAILABLE
+            - name: CircuitBreaker
+              args:
+                name: adminServiceCircuitBreaker
+                fallbackUri: forward:/fallback/admin
+
+        # Actuator端点路由
+        - id: actuator
+          uri: http://localhost:${server.port}
+          predicates:
+            - Path=/actuator/**
+          filters:
+            - StripPrefix=0
+
+        # 网关管理API路由
+        - id: gateway-api
+          uri: http://localhost:${server.port}
+          predicates:
+            - Path=/gateway/**
+          filters:
+            - StripPrefix=0
+
+      # 全局默认过滤器
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+        - name: RequestRateLimiter
+          args:
+            rate-limiter: "#{@defaultRateLimiter}"
+            key-resolver: "#{@apiKeyResolver}"
+            redis-rate-limiter.replenishRate: 100
+            redis-rate-limiter.burstCapacity: 200
+
+      # 跨域配置
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: false
+            maxAge: 3600
+
+    # Nacos配置
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        metadata:
+          version: 1.0.0
+          protocol: http
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        file-extension: yaml
+        import-check:
+          enabled: false
+
+    # Sentinel配置
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:localhost:8858}
+      scg:
+        fallback:
+          mode: response
+          response-body: '{"code":429,"message":"系统繁忙，请稍后再试","data":null}'
+      datasource:
+        flow:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+            dataId: ${spring.application.name}-flow-rules
+            groupId: SENTINEL_GROUP
+            rule-type: flow
+        degrade:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+            dataId: ${spring.application.name}-degrade-rules
+            groupId: SENTINEL_GROUP
+            rule-type: degrade
+
+  # 配置文件导入
+  config:
+    import:
+      - optional:nacos:ai-saas-gateway.yaml
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:ai-saas-platform-jwt-secret-key-2024}
+  access-expiration: ${JWT_ACCESS_EXPIRATION:86400}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800}
+  issuer: ${JWT_ISSUER:ai-saas-platform}
+
+# 网关配置
+gateway:
+  jwt:
+    secret: ${JWT_SECRET:ai-saas-platform-jwt-secret-key-2024}
+    access-expiration: ${JWT_ACCESS_EXPIRATION:86400}
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800}
+    issuer: ${JWT_ISSUER:ai-saas-platform}
+  rate-limit:
+    enabled: true
+    default-replenish-rate: 100
+    default-burst-capacity: 200
+    ip-limit: 50
+    user-limit: 100
+    api-limit: 200
+  security:
+    xss-protection: true
+    sql-injection-protection: true
+    ip-blacklist-enabled: true
+    ip-whitelist-enabled: false
+    ip-blacklist: []
+    ip-whitelist: []
+  log:
+    access-log-enabled: true
+    request-log-enabled: true
+    response-log-enabled: true
+    performance-log-enabled: true
+    slow-request-threshold: 1000
+  whitelist:
+    - /api/v1/auth/**
+    - /api/v1/users/register
+    - /actuator/**
+    - /health
+    - /swagger-ui/**
+    - /v3/api-docs/**
+  anonymous-paths: []
+
+# 日志配置
+logging:
+  level:
+    com.aisaas.gateway: INFO
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
+  file:
+    name: logs/gateway.log
+    max-size: 100MB
+    max-history: 30
+
+# Actuator配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,prometheus,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+      show-components: always
+    gateway:
+      enabled: true
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.75, 0.95, 0.99
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.aisaas.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG
+    reactor.netty: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+server:
+  port: ${SERVER_PORT:8080}
+  ssl:
+    enabled: ${SSL_ENABLED:true}
+    key-store: ${SSL_KEY_STORE:}
+    key-store-password: ${SSL_KEY_STORE_PASSWORD:}
+    key-store-type: ${SSL_KEY_STORE_TYPE:PKCS12}
+
+logging:
+  level:
+    com.aisaas.gateway: WARN
+    org.springframework.cloud.gateway: WARN
+  file:
+    name: /var/log/ai-saas/gateway.log
+    max-size: 500MB
+    max-history: 90
