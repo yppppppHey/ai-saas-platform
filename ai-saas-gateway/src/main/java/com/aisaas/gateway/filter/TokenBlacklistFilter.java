@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class TokenBlacklistFilter implements GlobalFilter, Ordered {
 
-    private static final String TOKEN_BLACKLIST_PREFIX = "token:blacklist:";
+    private static final String TOKEN_BLACKLIST_PREFIX = com.aisaas.common.util.RedisKeys.TOKEN_BLACKLIST;
     private static final String TOKEN_JTI_PREFIX = "token:jti:";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
@@ -151,14 +151,8 @@ public class TokenBlacklistFilter implements GlobalFilter, Ordered {
      * 对Token进行哈希
      */
     private String hashToken(String token) {
-        try {
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
-            return bytesToHex(hash);
-        } catch (Exception e) {
-            // 出错时返回原始Token的前16位
-            return token.length() > 16 ? token.substring(0, 16) : token;
-        }
+        return com.aisaas.common.util.TokenBlacklistSupport.hashToken(token);
+
     }
 
     /**

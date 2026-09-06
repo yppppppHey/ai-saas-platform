@@ -326,3 +326,15 @@ mvn -pl ai-saas-admin-service spring-boot:run
 ## License
 
 Apache License 2.0
+
+## 未实现清单（诚实声明，简历勿写）
+
+以下功能在代码中以 (501) 明确返回未实现，**不是假装成功的空壳**：
+
+- 头像上传（待接入 MinIO/OSS）
+- 修改手机号 / 邮箱（待短信与邮件通道）
+- 第三方账号绑定 / 解绑（待 OAuth 接入）
+- 角色权限分配（PermissionServiceImpl 部分接口）
+- VIP 过期定时任务、用户设置的读写
+
+已实现且可验证的核心链路：JWT 登录与刷新、登出/Token 黑名单、模型降级、跨服务计费（含幂等与对账）、配额 CAS 扣减、RAG 检索与切片、traceId 全链路。
