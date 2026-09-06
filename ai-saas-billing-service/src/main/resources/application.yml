@@ -72,3 +72,16 @@ rocketmq:
   producer:
     group: billing-producer-group
     send-message-timeout: 3000
+
+# 运行监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
