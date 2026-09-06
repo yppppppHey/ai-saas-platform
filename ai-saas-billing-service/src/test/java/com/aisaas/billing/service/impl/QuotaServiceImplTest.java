@@ -18,7 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * 配额检查与扣减单元测试
@@ -34,6 +34,12 @@ class QuotaServiceImplTest {
 
     @Mock
     private QuotaRecordMapper quotaRecordMapper;
+
+    @Mock
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+
+    @Mock
+    private org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
 
     @InjectMocks
     private QuotaServiceImpl service;
@@ -54,7 +60,11 @@ class QuotaServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        // 默认无总量限额
+        // 默认: 幂等键首次命中(放行)
+        lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(valueOperations.setIfAbsent(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class)))
+                .thenReturn(true);
     }
 
     @Test
@@ -111,7 +121,8 @@ class QuotaServiceImplTest {
     void deductQuota_recordMissing() {
         when(quotaRecordMapper.selectByUserIdAndType(USER_ID, QUOTA_TYPE))
                 .thenReturn(record(100L, 0L, 0L, 0L));
-        when(quotaRecordMapper.increaseUsage(eq(USER_ID), eq(QUOTA_TYPE), eq(10L))).thenReturn(0);
+        when(quotaRecordMapper.deductUsageAtomic(eq(USER_ID), eq(QUOTA_TYPE), eq(10L))).thenReturn(0);
+        when(quotaRecordMapper.countByUserAndType(USER_ID, QUOTA_TYPE)).thenReturn(0L);
 
         Result<QuotaDeductResultVO> result = service.deductQuota(USER_ID, QUOTA_TYPE, 10L, "chat", "biz-1");
 
@@ -123,7 +134,7 @@ class QuotaServiceImplTest {
     void deductQuota_success() {
         when(quotaRecordMapper.selectByUserIdAndType(USER_ID, QUOTA_TYPE))
                 .thenReturn(record(100L, 0L, 0L, 0L));
-        when(quotaRecordMapper.increaseUsage(eq(USER_ID), eq(QUOTA_TYPE), eq(10L))).thenReturn(1);
+        when(quotaRecordMapper.deductUsageAtomic(eq(USER_ID), eq(QUOTA_TYPE), eq(10L))).thenReturn(1);
 
         Result<QuotaDeductResultVO> result = service.deductQuota(USER_ID, QUOTA_TYPE, 10L, "chat", "biz-1");
 

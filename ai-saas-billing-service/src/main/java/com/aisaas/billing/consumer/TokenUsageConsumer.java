@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 /**
@@ -38,6 +39,23 @@ public class TokenUsageConsumer implements RocketMQListener<TokenUsageMessage> {
     public void onMessage(TokenUsageMessage message) {
         String usageId = message.getUsageId();
 
+        // 恢复生产方链路的 traceId，消费日志可与对话日志串起来
+        String traceId = message.getTraceId();
+        boolean mdcRestored = false;
+        if (traceId != null && !traceId.isBlank()) {
+            MDC.put(com.aisaas.common.web.TraceIdFilter.MDC_KEY, traceId);
+            mdcRestored = true;
+        }
+        try {
+            doConsume(message, usageId);
+        } finally {
+            if (mdcRestored) {
+                MDC.remove(com.aisaas.common.web.TraceIdFilter.MDC_KEY);
+            }
+        }
+    }
+
+    private void doConsume(TokenUsageMessage message, String usageId) {
         boolean ok = idempotentMessageHandler.consumeWithIdempotent(usageId, () -> {
             TokenUsageRecordDTO dto = TokenUsageRecordDTO.builder()
                     .userId(message.getUserId())

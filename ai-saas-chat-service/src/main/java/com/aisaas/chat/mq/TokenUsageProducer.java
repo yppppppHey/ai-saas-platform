@@ -45,10 +45,12 @@ public class TokenUsageProducer {
             log.warn("写入 pending 对账记录失败, usageId={}", message.getUsageId(), e);
         }
 
-        // 2. 同步发送，header 带 keys 方便在控制台按 usageId 检索
+        // 2. 同步发送，header 带 keys 方便在控制台按 usageId 检索；traceId 随消息跨服务传递
         try {
             Message<TokenUsageMessage> msg = MessageBuilder.withPayload(message)
                     .setHeader("KEYS", message.getUsageId())
+                    .setHeader(com.aisaas.common.web.TraceIdFilter.HEADER,
+                            org.slf4j.MDC.get(com.aisaas.common.web.TraceIdFilter.MDC_KEY))
                     .build();
             var result = rocketMQTemplate.syncSend(TokenUsageMessage.TOPIC, msg, 3000);
             log.info("Token用量消息已发送: usageId={}, status={}, totalTokens={}",

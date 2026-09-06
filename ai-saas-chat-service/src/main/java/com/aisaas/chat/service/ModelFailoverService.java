@@ -14,6 +14,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import reactor.core.publisher.Flux;
 
 /**
  * 模型智能路由与故障降级
@@ -145,6 +147,53 @@ public class ModelFailoverService {
         throw new com.aisaas.common.exception.BizException(
                 "所有模型均调用失败(降级链: " + chain + "): "
                         + (lastError != null ? lastError.getMessage() : "未知错误"));
+    }
+
+    /**
+     * 带降级的流式对话调用
+     *
+     * 降级窗口：仅当"尚未向下游发出任何分片"时才允许切换模型重试——
+     * 一旦首 token 已输出给客户端，重试会导致内容重复，此时错误原样上抛
+     * （由 SSE 层向客户端发送错误事件并收尾）。
+     * 也就是说：连接失败、鉴权失败、模型直接拒绝等"首 token 前的错误"会被降级吸收；
+     * 流中断等"输出中途的错误"不降级。
+     */
+    public Flux<ChatResponse> streamChatWithFailover(String providerName, ChatRequest request) {
+        List<String> chain = buildChain(request.getModel());
+        AtomicBoolean emitted = new AtomicBoolean(false);
+        return Flux.defer(() -> tryStream(chain, 0, providerName, request, emitted));
+    }
+
+    private Flux<ChatResponse> tryStream(List<String> chain, int idx, String providerName,
+                                         ChatRequest request, AtomicBoolean emitted) {
+        if (idx >= chain.size()) {
+            return Flux.error(new com.aisaas.common.exception.BizException(
+                    "所有模型均流式调用失败(降级链: " + chain + ")"));
+        }
+        String modelId = chain.get(idx);
+        AIProvider provider = resolveProvider(providerName, modelId);
+        if (provider == null) {
+            log.warn("[failover-stream] 无可用Provider服务模型: {}", modelId);
+            return tryStream(chain, idx + 1, providerName, request, emitted);
+        }
+
+        ChatRequest attempt = (idx == 0 || modelId.equals(request.getModel()))
+                ? request : copyWithModel(request, modelId);
+
+        return provider.streamChat(attempt)
+                // 只要向下游发过任意分片, 就锁定当前模型
+                .doOnNext(resp -> emitted.set(true))
+                .onErrorResume(e -> {
+                    if (emitted.get()) {
+                        log.error("[failover-stream] 流输出中断(不降级): model={}, 原因={}",
+                                modelId, e.getMessage());
+                        return Flux.error(e);
+                    }
+                    log.warn("[failover-stream] 主模型流式调用失败, 降级: {} -> {}, provider={}, 原因={}",
+                            chain.get(0), chain.get(Math.min(idx + 1, chain.size() - 1)),
+                            provider.getProviderName(), e.getMessage());
+                    return tryStream(chain, idx + 1, providerName, request, emitted);
+                });
     }
 
     /**
