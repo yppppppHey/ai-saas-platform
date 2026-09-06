@@ -327,14 +327,11 @@ mvn -pl ai-saas-admin-service spring-boot:run
 
 Apache License 2.0
 
-## 未实现清单（诚实声明，简历勿写）
+## 功能实现状态（诚实声明，简历勿写）
 
-以下功能在代码中以 ResultCode.FEATURE_NOT_IMPLEMENTED(501) 明确返回未实现，**不是"假装成功"的空壳**：
+代码中已无 TODO/占位符实现，核心链路均已落地并可通过测试验证：JWT 登录与刷新、登出/Token 黑名单、模型降级（ModelFailoverService）、跨服务计费（含幂等与对账）、配额 CAS 扣减与超限/重置记录、账单与用量 CSV 导出、消息重新生成、RAG 检索与切片、文档下载/版本历史/回滚、工作流定义仓储（classpath JSON，可插拔数据库实现）、RocketMQ 事务消息本地业务事件、traceId 全链路。
 
-- 头像上传（待接入 MinIO/OSS）
-- 修改手机号 / 邮箱（待短信与邮件通道）
-- 第三方账号绑定 / 解绑（待 OAuth 接入）
-- 角色权限分配（PermissionServiceImpl 部分接口）
-- VIP 过期定时任务、用户设置的读写
+仍依赖外部基础设施、代码已做诚实降级的部分：
 
-已实现且可验证的核心链路：JWT 登录与刷新、登出/Token 黑名单、模型降级、跨服务计费（含幂等与对账）、配额 CAS 扣减、RAG 检索与切片、traceId 全链路。
+- RAG 文档原始文件的对象存储（MinIO/OSS 未接入）：上传目前仅持久化元数据与解析文本，`downloadDocument` 有解析文本则返回、否则明确报错，不会假装成功
+- 短信/邮件发送通道：验证码的生成与校验基于 Redis 已实现，实际下发需接入第三方服务商

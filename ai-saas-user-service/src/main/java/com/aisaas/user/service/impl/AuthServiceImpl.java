@@ -43,6 +43,7 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     private final BCryptPasswordEncoder passwordEncoder;
     private final RoleService roleService;
     private final QuotaService quotaService;
+    private final com.aisaas.user.messaging.VerifyCodeNotifier verifyCodeNotifier;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -206,12 +207,18 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
         String code = String.format("%06d", (int) (Math.random() * 1000000));
         String key = UUID.randomUUID().toString().replace("-", "");
 
-        // 验证码缓存5分钟
-        String redisKey = RedisKeys.USER_VERIFY_CODE + key;
-        redisUtils.set(redisKey, code, 5, TimeUnit.MINUTES);
+        // 验证码缓存5分钟：一份按 key（前端回传），一份按目标（服务端直接校验，如找回密码）
+        redisUtils.set(RedisKeys.USER_VERIFY_CODE + key, code, 5, TimeUnit.MINUTES);
+        redisUtils.set(RedisKeys.USER_VERIFY_CODE + target, code, 5, TimeUnit.MINUTES);
 
-        // TODO: 实际发送验证码到手机/邮箱
-        log.info("验证码已发送到 {}: {}, key: {}", target, code, key);
+        // 发送（默认日志实现，接入短信/邮件时替换 VerifyCodeNotifier 实现即可）
+        try {
+            verifyCodeNotifier.send(target, type, code);
+        } catch (Exception e) {
+            log.error("验证码发送失败: target={}, type={}", target, type, e);
+            return Result.error(ResultCode.SERVICE_UNAVAILABLE, "验证码发送失败，请稍后重试");
+        }
+        log.info("验证码已发送到 {}: key: {}", target, key);
 
         return Result.success(key);
     }
@@ -243,8 +250,15 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
             return Result.error(ResultCode.NOT_FOUND, "用户不存在");
         }
 
-        // 验证验证码
-        // TODO: 验证邮箱验证码
+        // 验证验证码（按目标存储的那一份，找回密码场景前端不传 key）
+        String cachedCode = (String) redisUtils.get(RedisKeys.USER_VERIFY_CODE + email);
+        if (!org.springframework.util.StringUtils.hasText(cachedCode)) {
+            return Result.error(ResultCode.BAD_REQUEST, "验证码已过期，请重新获取");
+        }
+        if (!cachedCode.equalsIgnoreCase(verifyCode)) {
+            return Result.error(ResultCode.BAD_REQUEST, "验证码错误");
+        }
+        redisUtils.delete(RedisKeys.USER_VERIFY_CODE + email);
 
         // 更新密码
         user.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -322,7 +336,27 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
      * 获取客户端IP
      */
     private String getClientIp() {
-        // TODO: 实现获取客户端IP
-        return "127.0.0.1";
+        try {
+            org.springframework.web.context.request.ServletRequestAttributes attrs =
+                    (org.springframework.web.context.request.ServletRequestAttributes)
+                            org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs == null) {
+                return "127.0.0.1";
+            }
+            jakarta.servlet.http.HttpServletRequest request = attrs.getRequest();
+            // 反向代理场景取真实来源: X-Forwarded-For 首段 -> X-Real-IP -> remoteAddr
+            String ip = request.getHeader("X-Forwarded-For");
+            if (org.springframework.util.StringUtils.hasText(ip) && !"unknown".equalsIgnoreCase(ip)) {
+                return ip.split(",")[0].trim();
+            }
+            ip = request.getHeader("X-Real-IP");
+            if (org.springframework.util.StringUtils.hasText(ip) && !"unknown".equalsIgnoreCase(ip)) {
+                return ip;
+            }
+            return request.getRemoteAddr();
+        } catch (Exception e) {
+            log.warn("获取客户端IP失败", e);
+            return "127.0.0.1";
+        }
     }
 }

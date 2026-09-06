@@ -216,8 +216,48 @@ public class BillServiceImpl implements BillService {
 
     @Override
     public Result<String> exportBills(BillExportDTO dto) {
-        // TODO: 实现导出逻辑
-        return Result.success("");
+        try {
+            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Bill> wrapper =
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+            if (dto.getUserId() != null) {
+                wrapper.eq(Bill::getUserId, dto.getUserId());
+            }
+            if (dto.getBillType() != null) {
+                wrapper.eq(Bill::getBillType, dto.getBillType());
+            }
+            if (dto.getStatus() != null) {
+                wrapper.eq(Bill::getStatus, dto.getStatus());
+            }
+            if (dto.getStartDate() != null) {
+                wrapper.ge(Bill::getBillStartDate, dto.getStartDate());
+            }
+            if (dto.getEndDate() != null) {
+                wrapper.le(Bill::getBillEndDate, dto.getEndDate());
+            }
+            wrapper.orderByDesc(Bill::getCreatedAt);
+            List<Bill> list = billMapper.selectList(wrapper);
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("账单ID,用户ID,账单号,类型,状态,开始日期,结束日期,应收金额,优惠金额,实付金额,已付金额,创建时间\n");
+            for (Bill b : list) {
+                sb.append(csvCell(b.getBillId())).append(",")
+                  .append(csvCell(b.getUserId())).append(",")
+                  .append(csvCell(b.getBillNo())).append(",")
+                  .append(csvCell(b.getBillType())).append(",")
+                  .append(csvCell(b.getStatus())).append(",")
+                  .append(csvCell(b.getBillStartDate())).append(",")
+                  .append(csvCell(b.getBillEndDate())).append(",")
+                  .append(csvCell(b.getTotalAmount())).append(",")
+                  .append(csvCell(b.getDiscountAmount())).append(",")
+                  .append(csvCell(b.getPayableAmount())).append(",")
+                  .append(csvCell(b.getPaidAmount())).append(",")
+                  .append(csvCell(b.getCreatedAt())).append("\n");
+            }
+            return Result.success(sb.toString());
+        } catch (Exception e) {
+            log.error("导出账单失败", e);
+            return Result.error(ResultCode.SYSTEM_ERROR, "导出账单失败: " + e.getMessage());
+        }
     }
 
     // ==================== 私有方法 ====================
@@ -236,5 +276,15 @@ public class BillServiceImpl implements BillService {
         BillVO vo = new BillVO();
         BeanUtils.copyProperties(bill, vo);
         return vo;
+    }
+    private String csvCell(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String s = value.toString();
+        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 }

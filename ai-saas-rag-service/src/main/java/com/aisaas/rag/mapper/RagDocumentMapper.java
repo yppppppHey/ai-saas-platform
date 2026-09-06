@@ -17,6 +17,9 @@ public interface RagDocumentMapper extends BaseMapper<RagDocument> {
     @Select("SELECT * FROM rag_document WHERE doc_id = #{docId} AND is_deleted = 0")
     RagDocument selectByDocId(@Param("docId") String docId);
 
+    @Select("SELECT * FROM rag_document WHERE doc_id = #{docId} AND is_deleted = 0 ORDER BY version DESC")
+    List<RagDocument> selectVersionsByDocId(@Param("docId") String docId);
+
     @Select("SELECT * FROM rag_document WHERE kb_id = #{kbId} AND is_deleted = 0 ORDER BY created_at DESC")
     List<RagDocument> selectByKbId(@Param("kbId") Long kbId);
 

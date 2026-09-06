@@ -77,4 +77,17 @@ public interface AiChatService {
      * @return 状态信息
      */
     AiChatResponseDTO.GenerationStatus getGenerationStatus(Long messageId);
+
+    /**
+     * 编辑消息后重新生成AI回复
+     *
+     * @param userId         用户ID
+     * @param conversationId 会话ID
+     * @param userMessageId  被编辑的用户消息ID
+     * @param editedContent  编辑后的内容
+     * @param model          指定模型(可空, 默认用会话模型)
+     * @return 新的AI回复
+     */
+    AiChatResponseDTO regenerateReply(Long userId, Long conversationId, Long userMessageId,
+                                      String editedContent, String model);
 }

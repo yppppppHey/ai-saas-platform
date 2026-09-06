@@ -6,6 +6,11 @@ import com.aisaas.user.dto.*;
 import com.aisaas.user.entity.UserAccount;
 import com.aisaas.user.entity.UserRole;
 import com.aisaas.user.mapper.UserAccountMapper;
+import com.aisaas.user.entity.UserOauthBinding;
+import com.aisaas.user.entity.UserSettings;
+import com.aisaas.user.mapper.UserOauthBindingMapper;
+import com.aisaas.user.mapper.UserSettingsMapper;
+
 import com.aisaas.user.service.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -38,6 +43,18 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     private final QuotaService quotaService;
     private final VipService vipService;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final com.aisaas.user.util.JwtUtil jwtUtil;
+    private final UserSettingsMapper userSettingsMapper;
+    private final UserOauthBindingMapper userOauthBindingMapper;
+    private final com.aisaas.common.util.RedisUtils redisUtils;
+
+    /** 头像存储目录（生产可替换为 OSS/MinIO） */
+    @org.springframework.beans.factory.annotation.Value("${user.avatar.storage-path:./uploads/avatars}")
+    private String avatarStoragePath;
+
+    /** 头像访问前缀 */
+    @org.springframework.beans.factory.annotation.Value("${user.avatar.url-prefix:/uploads/avatars}")
+    private String avatarUrlPrefix;
 
     @Override
     public Result<UserInfoDTO> getUserInfo(Long userId) {
@@ -50,8 +67,20 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
 
     @Override
     public Result<UserInfoDTO> getCurrentUser(String token) {
-        // TODO: 从token解析用户ID
-        return Result.error(ResultCode.UNAUTHORIZED, "请重新登录");
+        if (!org.springframework.util.StringUtils.hasText(token)) {
+            return Result.error(ResultCode.UNAUTHORIZED, "请先登录");
+        }
+        Long userId;
+        try {
+            userId = jwtUtil.getUserIdFromToken(token);
+        } catch (Exception e) {
+            log.warn("解析token失败: {}", e.getMessage());
+            return Result.error(ResultCode.TOKEN_INVALID, "登录已失效，请重新登录");
+        }
+        if (userId == null) {
+            return Result.error(ResultCode.UNAUTHORIZED, "请重新登录");
+        }
+        return getUserInfo(userId);
     }
 
     @Override
@@ -95,10 +124,42 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
 
     @Override
     public Result<String> uploadAvatar(Long userId, MultipartFile file) {
-        // TODO: 实现头像上传逻辑
-        // 1. 上传到MinIO/OSS
-        // 2. 更新用户头像URL
-        return Result.error(ResultCode.FEATURE_NOT_IMPLEMENTED, "头像上传功能待实现");
+        if (file == null || file.isEmpty()) {
+            return Result.error(ResultCode.BAD_REQUEST, "请选择要上传的头像文件");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            return Result.error(ResultCode.FILE_TOO_LARGE, "头像大小不能超过5MB");
+        }
+        String original = org.springframework.util.StringUtils.getFilenameExtension(file.getOriginalFilename());
+        String ext = org.springframework.util.StringUtils.hasText(original) ? "." + original.toLowerCase() : ".png";
+        if (!java.util.Set.of(".png", ".jpg", ".jpeg", ".gif", ".webp").contains(ext)) {
+            return Result.error(ResultCode.INVALID_FILE_TYPE, "仅支持 png/jpg/jpeg/gif/webp 格式");
+        }
+
+        UserAccount user = getById(userId);
+        if (user == null || user.getIsDeleted() == 1) {
+            return Result.error(ResultCode.NOT_FOUND, "用户不存在");
+        }
+
+        try {
+            java.nio.file.Path dir = java.nio.file.Paths.get(avatarStoragePath).toAbsolutePath().normalize();
+            java.nio.file.Files.createDirectories(dir);
+            String filename = userId + "_" + java.util.UUID.randomUUID().toString().replace("-", "") + ext;
+            java.nio.file.Path target = dir.resolve(filename);
+            try (java.io.InputStream in = file.getInputStream()) {
+                java.nio.file.Files.copy(in, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            String url = avatarUrlPrefix + "/" + filename;
+            user.setAvatarUrl(url);
+            user.setUpdatedAt(java.time.LocalDateTime.now());
+            updateById(user);
+            log.info("头像上传成功: userId={}, url={}", userId, url);
+            return Result.success(url);
+        } catch (Exception e) {
+            log.error("头像上传失败: userId={}", userId, e);
+            return Result.error(ResultCode.FILE_UPLOAD_FAILED, "头像上传失败: " + e.getMessage());
+        }
     }
 
     @Override
@@ -130,37 +191,146 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
 
     @Override
     public Result<Void> changePhone(Long userId, String newPhone, String verifyCode) {
-        // TODO: 实现修改手机号逻辑
-        return Result.error(ResultCode.FEATURE_NOT_IMPLEMENTED, "修改手机号功能待实现");
+        if (!org.springframework.util.StringUtils.hasText(newPhone)) {
+            return Result.error(ResultCode.BAD_REQUEST, "手机号不能为空");
+        }
+        if (!verifyCode(newPhone, verifyCode)) {
+            return Result.error(ResultCode.BAD_REQUEST, "验证码错误或已过期");
+        }
+        UserAccount exist = userAccountMapper.selectByPhone(newPhone);
+        if (exist != null && !exist.getId().equals(userId)) {
+            return Result.error(ResultCode.CONFLICT, "手机号已被占用");
+        }
+        UserAccount user = getById(userId);
+        if (user == null || user.getIsDeleted() == 1) {
+            return Result.error(ResultCode.NOT_FOUND, "用户不存在");
+        }
+        user.setPhone(newPhone);
+        user.setUpdatedAt(java.time.LocalDateTime.now());
+        updateById(user);
+        log.info("手机号修改成功: userId={}", userId);
+        return Result.success();
     }
 
     @Override
     public Result<Void> changeEmail(Long userId, String newEmail, String verifyCode) {
-        // TODO: 实现修改邮箱逻辑
-        return Result.error(ResultCode.FEATURE_NOT_IMPLEMENTED, "修改邮箱功能待实现");
+        if (!org.springframework.util.StringUtils.hasText(newEmail)) {
+            return Result.error(ResultCode.BAD_REQUEST, "邮箱不能为空");
+        }
+        if (!verifyCode(newEmail, verifyCode)) {
+            return Result.error(ResultCode.BAD_REQUEST, "验证码错误或已过期");
+        }
+        UserAccount exist = userAccountMapper.selectByEmail(newEmail);
+        if (exist != null && !exist.getId().equals(userId)) {
+            return Result.error(ResultCode.CONFLICT, "邮箱已被占用");
+        }
+        UserAccount user = getById(userId);
+        if (user == null || user.getIsDeleted() == 1) {
+            return Result.error(ResultCode.NOT_FOUND, "用户不存在");
+        }
+        user.setEmail(newEmail);
+        user.setUpdatedAt(java.time.LocalDateTime.now());
+        updateById(user);
+        log.info("邮箱修改成功: userId={}", userId);
+        return Result.success();
     }
 
     @Override
     public Result<Void> bindThirdPartyAccount(Long userId, String platform, String accountId) {
-        // TODO: 实现绑定第三方账号逻辑
-        return Result.error(ResultCode.FEATURE_NOT_IMPLEMENTED, "绑定第三方账号功能待实现");
+        if (!org.springframework.util.StringUtils.hasText(platform) || !org.springframework.util.StringUtils.hasText(accountId)) {
+            return Result.error(ResultCode.BAD_REQUEST, "平台与账号ID不能为空");
+        }
+        if (userOauthBindingMapper.countBinding(userId, platform) > 0) {
+            return Result.error(ResultCode.CONFLICT, "该平台账号已绑定");
+        }
+        UserOauthBinding binding = new UserOauthBinding();
+        binding.setUserId(userId);
+        binding.setPlatform(platform);
+        binding.setAccountId(accountId);
+        binding.setBindAt(java.time.LocalDateTime.now());
+        binding.setIsDeleted(0);
+        userOauthBindingMapper.insert(binding);
+        log.info("第三方账号绑定成功: userId={}, platform={}", userId, platform);
+        return Result.success();
     }
 
     @Override
     public Result<Void> unbindThirdPartyAccount(Long userId, String platform) {
-        // TODO: 实现解绑第三方账号逻辑
-        return Result.error(ResultCode.FEATURE_NOT_IMPLEMENTED, "解绑第三方账号功能待实现");
+        if (!org.springframework.util.StringUtils.hasText(platform)) {
+            return Result.error(ResultCode.BAD_REQUEST, "平台不能为空");
+        }
+        // 至少保留一种登录方式：若用户无密码且只剩这一个绑定，则不允许解绑
+        UserAccount user = getById(userId);
+        if (user == null || user.getIsDeleted() == 1) {
+            return Result.error(ResultCode.NOT_FOUND, "用户不存在");
+        }
+        long bindings = userOauthBindingMapper.selectByUserId(userId).size();
+        if (bindings <= 1 && !org.springframework.util.StringUtils.hasText(user.getPasswordHash())) {
+            return Result.error(ResultCode.BUSINESS_ERROR, "请至少保留一种登录方式");
+        }
+        int rows = userOauthBindingMapper.softDelete(userId, platform);
+        if (rows == 0) {
+            return Result.error(ResultCode.NOT_FOUND, "未找到该平台的绑定记录");
+        }
+        log.info("第三方账号解绑成功: userId={}, platform={}", userId, platform);
+        return Result.success();
     }
 
     @Override
     public Result<UserSettingsDTO> getUserSettings(Long userId) {
-        // TODO: 实现获取用户设置逻辑
-        return Result.success(new UserSettingsDTO());
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<UserSettings> wrapper =
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+        wrapper.eq(UserSettings::getUserId, userId);
+        UserSettings settings = userSettingsMapper.selectOne(wrapper);
+        if (settings == null) {
+            // 首次访问返回默认设置（不落库，等用户真正修改时再写）
+            UserSettingsDTO def = new UserSettingsDTO();
+            def.setTheme("system");
+            def.setLanguage("zh-CN");
+            def.setTimezone("Asia/Shanghai");
+            return Result.success(def);
+        }
+        UserSettingsDTO dto = new UserSettingsDTO();
+        dto.setTheme(settings.getTheme());
+        dto.setLanguage(settings.getLanguage());
+        dto.setTimezone(settings.getTimezone());
+        dto.setDefaultModel(settings.getDefaultModel());
+        dto.setNotification(settings.getNotification());
+        dto.setPrivacy(settings.getPrivacy());
+        dto.setExtraConfig(settings.getExtraConfig());
+        return Result.success(dto);
     }
 
     @Override
     public Result<Void> updateUserSettings(Long userId, UserSettingsDTO settingsDTO) {
-        // TODO: 实现更新用户设置逻辑
+        if (settingsDTO == null) {
+            return Result.error(ResultCode.BAD_REQUEST, "设置内容不能为空");
+        }
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<UserSettings> wrapper =
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+        wrapper.eq(UserSettings::getUserId, userId);
+        UserSettings settings = userSettingsMapper.selectOne(wrapper);
+
+        boolean isNew = false;
+        if (settings == null) {
+            settings = new UserSettings();
+            settings.setUserId(userId);
+            isNew = true;
+        }
+        settings.setTheme(settingsDTO.getTheme());
+        settings.setLanguage(settingsDTO.getLanguage());
+        settings.setTimezone(settingsDTO.getTimezone());
+        settings.setDefaultModel(settingsDTO.getDefaultModel());
+        settings.setNotification(settingsDTO.getNotification());
+        settings.setPrivacy(settingsDTO.getPrivacy());
+        settings.setExtraConfig(settingsDTO.getExtraConfig());
+
+        if (isNew) {
+            userSettingsMapper.insert(settings);
+        } else {
+            userSettingsMapper.updateById(settings);
+        }
+        log.info("用户设置更新成功: userId={}", userId);
         return Result.success();
     }
 
@@ -284,5 +454,20 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
             case 2: return "待验证";
             default: return "未知";
         }
+    }
+
+    /**
+     * 校验目标(手机号/邮箱)对应的验证码
+     */
+    private boolean verifyCode(String target, String code) {
+        String cached = (String) redisUtils.get(com.aisaas.common.util.RedisKeys.USER_VERIFY_CODE + target);
+        if (!org.springframework.util.StringUtils.hasText(cached) || !org.springframework.util.StringUtils.hasText(code)) {
+            return false;
+        }
+        if (!cached.equalsIgnoreCase(code)) {
+            return false;
+        }
+        redisUtils.delete(com.aisaas.common.util.RedisKeys.USER_VERIFY_CODE + target);
+        return true;
     }
 }

@@ -2,6 +2,7 @@ package com.aisaas.common.ai.agent.engine;
 
 import com.aisaas.common.ai.agent.state.StateMachine;
 import com.aisaas.common.ai.agent.workflow.WorkflowDefinition;
+import com.aisaas.common.ai.agent.workflow.WorkflowDefinitionRepository;
 import com.aisaas.common.ai.agent.workflow.WorkflowEdge;
 import com.aisaas.common.ai.agent.workflow.WorkflowInstance;
 import com.aisaas.common.ai.agent.workflow.WorkflowNode;
@@ -36,6 +37,13 @@ public class WorkflowEngine {
 
     // 执行中的实例
     private final Map<String, WorkflowInstance> runningInstances = new ConcurrentHashMap<>();
+
+    // 工作流定义仓储（可选：容器未提供时引擎仅能执行显式传入 definition 的实例）
+    @Autowired(required = false)
+    private WorkflowDefinitionRepository definitionRepository;
+
+    // 工作流定义本地缓存，避免每次恢复实例都回查仓储
+    private final Map<String, WorkflowDefinition> definitionCache = new ConcurrentHashMap<>();
 
     // 状态机
     private final StateMachine stateMachine = new StateMachine();
@@ -527,12 +535,41 @@ public class WorkflowEngine {
     }
 
     /**
-     * 获取工作流定义（需要从存储中加载）
+     * 获取工作流定义（从仓储中加载，并带本地缓存）
+     *
+     * <p>定义来源由 {@link WorkflowDefinitionRepository} 决定：默认实现会从 classpath
+     * 下的 {@code /workflows/*.json} 加载（见 {@code InMemoryWorkflowDefinitionRepository}），
+     * 业务服务也可提供基于数据库的实现来覆盖默认 Bean。若容器未提供任何仓储实现，
+     * 则此处始终返回 {@code null}，调用方需保证以显式传入 definition 的方式启动实例。</p>
+     *
+     * @param definitionId 工作流定义ID
+     * @return 工作流定义，未找到时返回 {@code null}
      */
     private WorkflowDefinition getWorkflowDefinition(String definitionId) {
-        // TODO: 从工作流定义存储服务中加载
-        // 这里需要实现从数据库或其他存储中加载工作流定义的逻辑
-        return null;
+        if (definitionId == null) {
+            return null;
+        }
+        WorkflowDefinition cached = definitionCache.get(definitionId);
+        if (cached != null) {
+            return cached;
+        }
+        if (definitionRepository == null) {
+            log.warn("No WorkflowDefinitionRepository bean found, cannot load definition: {}", definitionId);
+            return null;
+        }
+        WorkflowDefinition definition = definitionRepository.getById(definitionId);
+        if (definition == null) {
+            log.warn("Workflow definition not found: {}", definitionId);
+            return null;
+        }
+        // 校验定义合法性，非法定义不入缓存
+        WorkflowDefinition.ValidationResult validation = definition.validate();
+        if (!validation.isValid()) {
+            log.error("Workflow definition '{}' is invalid: {}", definitionId, validation.getErrors());
+            return null;
+        }
+        definitionCache.put(definitionId, definition);
+        return definition;
     }
 
     private String getStackTrace(Throwable t) {

@@ -241,3 +241,61 @@ CREATE TABLE IF NOT EXISTS `billing_payment` (
   KEY `idx_third_trade_no` (`third_trade_no`),
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付表';
+
+-- 配额超限记录表
+CREATE TABLE IF NOT EXISTS `billing_quota_exceed_record` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `record_id` varchar(64) NOT NULL COMMENT '记录ID',
+  `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+  `quota_type` tinyint unsigned NOT NULL COMMENT '配额类型',
+  `daily_limit` bigint unsigned NOT NULL DEFAULT '0' COMMENT '每日限制',
+  `monthly_limit` bigint unsigned NOT NULL DEFAULT '0' COMMENT '每月限制',
+  `total_limit` bigint unsigned NOT NULL DEFAULT '0' COMMENT '总计限制',
+  `daily_used` bigint unsigned NOT NULL DEFAULT '0' COMMENT '今日已使用',
+  `monthly_used` bigint unsigned NOT NULL DEFAULT '0' COMMENT '本月已使用',
+  `total_used` bigint unsigned NOT NULL DEFAULT '0' COMMENT '总计已使用',
+  `last_reset_date` date DEFAULT NULL COMMENT '最后重置日期',
+  `reset_day` tinyint unsigned NOT NULL DEFAULT '1' COMMENT '每月重置日',
+  `effective_at` datetime NOT NULL COMMENT '生效时间',
+  `expire_at` datetime DEFAULT NULL COMMENT '过期时间',
+  `status` tinyint unsigned NOT NULL DEFAULT '1' COMMENT '状态: 1-启用 2-已超限处理',
+  `exceed_amount` bigint unsigned DEFAULT NULL COMMENT '超限量',
+  `handled_at` datetime DEFAULT NULL COMMENT '处理时间',
+  `handler` varchar(64) DEFAULT NULL COMMENT '处理人',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint unsigned NOT NULL DEFAULT '0' COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_record_id` (`record_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_handled_at` (`handled_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='配额超限记录表';
+
+-- 配额重置记录表
+CREATE TABLE IF NOT EXISTS `billing_quota_reset_record` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `record_id` varchar(64) NOT NULL COMMENT '记录ID',
+  `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+  `quota_type` tinyint unsigned NOT NULL COMMENT '配额类型',
+  `daily_limit` bigint unsigned NOT NULL DEFAULT '0' COMMENT '每日限制',
+  `monthly_limit` bigint unsigned NOT NULL DEFAULT '0' COMMENT '每月限制',
+  `total_limit` bigint unsigned NOT NULL DEFAULT '0' COMMENT '总计限制',
+  `daily_used` bigint unsigned NOT NULL DEFAULT '0' COMMENT '今日已使用',
+  `monthly_used` bigint unsigned NOT NULL DEFAULT '0' COMMENT '本月已使用',
+  `total_used` bigint unsigned NOT NULL DEFAULT '0' COMMENT '总计已使用',
+  `last_reset_date` date DEFAULT NULL COMMENT '最后重置日期',
+  `reset_day` tinyint unsigned NOT NULL DEFAULT '1' COMMENT '每月重置日',
+  `effective_at` datetime NOT NULL COMMENT '生效时间',
+  `expire_at` datetime DEFAULT NULL COMMENT '过期时间',
+  `status` tinyint unsigned NOT NULL DEFAULT '1' COMMENT '状态: 1-启用',
+  `reset_type` tinyint unsigned DEFAULT NULL COMMENT '重置类型: 1-日 2-月 3-全部',
+  `operator` varchar(64) DEFAULT NULL COMMENT '操作人',
+  `reset_at` datetime DEFAULT NULL COMMENT '重置时间',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint unsigned NOT NULL DEFAULT '0' COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_record_id` (`record_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_reset_at` (`reset_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='配额重置记录表';

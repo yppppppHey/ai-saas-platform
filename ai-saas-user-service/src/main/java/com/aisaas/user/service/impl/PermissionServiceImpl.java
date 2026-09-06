@@ -78,29 +78,53 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void assignPermission(Long roleId, Long permissionId) {
-        // TODO: 实现角色权限分配
+        if (roleId == null || permissionId == null) {
+            throw new com.aisaas.common.exception.BizException(
+                    com.aisaas.common.constant.ResultCode.BAD_REQUEST, "角色ID与权限ID不能为空");
+        }
+        if (permissionMapper.countRolePermission(roleId, permissionId) > 0) {
+            log.info("角色权限已存在, 跳过: roleId={}, permissionId={}", roleId, permissionId);
+            return;
+        }
+        permissionMapper.insertRolePermission(roleId, permissionId);
         log.info("为角色分配权限: roleId={}, permissionId={}", roleId, permissionId);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void assignPermissions(Long roleId, List<Long> permissionIds) {
-        // TODO: 实现批量分配权限
-        log.info("为角色批量分配权限: roleId={}, permissionIds={}", roleId, permissionIds);
+        if (roleId == null || permissionIds == null || permissionIds.isEmpty()) {
+            return;
+        }
+        int count = 0;
+        for (Long permissionId : permissionIds) {
+            if (permissionId == null || permissionMapper.countRolePermission(roleId, permissionId) > 0) {
+                continue;
+            }
+            permissionMapper.insertRolePermission(roleId, permissionId);
+            count++;
+        }
+        log.info("为角色批量分配权限: roleId={}, 请求={} 条, 实际新增={} 条", roleId, permissionIds.size(), count);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removePermission(Long roleId, Long permissionId) {
-        // TODO: 实现移除角色权限
-        log.info("移除角色权限: roleId={}, permissionId={}", roleId, permissionId);
+        if (roleId == null || permissionId == null) {
+            return;
+        }
+        int rows = permissionMapper.deleteRolePermission(roleId, permissionId);
+        log.info("移除角色权限: roleId={}, permissionId={}, 影响={} 条", roleId, permissionId, rows);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removeAllPermissions(Long roleId) {
-        // TODO: 实现移除角色所有权限
-        log.info("移除角色所有权限: roleId={}", roleId);
+        if (roleId == null) {
+            return;
+        }
+        int rows = permissionMapper.deleteRolePermissions(roleId);
+        log.info("移除角色所有权限: roleId={}, 影响={} 条", roleId, rows);
     }
 
     @Override
@@ -131,7 +155,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             } else {
                 Permission parent = permissionMap.get(permission.getParentId());
                 if (parent != null) {
-                    // TODO: 添加子权限到父权限
+                    parent.getChildren().add(permission);
                 }
             }
         }

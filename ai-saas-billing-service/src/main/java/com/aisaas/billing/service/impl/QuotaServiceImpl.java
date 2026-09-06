@@ -2,9 +2,13 @@ package com.aisaas.billing.service.impl;
 
 import com.aisaas.billing.dto.*;
 import com.aisaas.billing.entity.QuotaConfig;
+import com.aisaas.billing.entity.QuotaExceedRecord;
 import com.aisaas.billing.entity.QuotaRecord;
+import com.aisaas.billing.entity.QuotaResetRecord;
 import com.aisaas.billing.mapper.QuotaConfigMapper;
+import com.aisaas.billing.mapper.QuotaExceedRecordMapper;
 import com.aisaas.billing.mapper.QuotaRecordMapper;
+import com.aisaas.billing.mapper.QuotaResetRecordMapper;
 import com.aisaas.billing.service.QuotaService;
 import com.aisaas.common.result.Result;
 import com.aisaas.common.constant.ResultCode;
@@ -38,6 +42,10 @@ public class QuotaServiceImpl implements QuotaService {
 
     @Autowired
     private QuotaRecordMapper quotaRecordMapper;
+    @Autowired
+    private QuotaExceedRecordMapper quotaExceedRecordMapper;
+    @Autowired
+    private QuotaResetRecordMapper quotaResetRecordMapper;
 
     // ==================== 配额配置管理 ====================
 
@@ -431,14 +439,55 @@ public class QuotaServiceImpl implements QuotaService {
 
     @Override
     public Result<QuotaExceedHandleResultVO> handleQuotaExceed(Long userId, Integer quotaType, Long exceedAmount) {
-        // TODO: 实现配额超限处理逻辑
-        return Result.success(new QuotaExceedHandleResultVO());
+        try {
+            QuotaRecord current = quotaRecordMapper.selectByUserIdAndType(userId, quotaType);
+            if (current == null) {
+                return Result.error(ResultCode.NOT_FOUND, "未找到该用户的配额记录");
+            }
+            QuotaExceedRecord exceedRecord = new QuotaExceedRecord();
+            copyToHistory(current, exceedRecord);
+            exceedRecord.setRecordId(genRecordId("QE"));
+            exceedRecord.setExceedAmount(exceedAmount);
+            exceedRecord.setHandledAt(LocalDateTime.now());
+            exceedRecord.setHandler("system");
+            exceedRecord.setStatus(2); // 2-已超限处理
+            quotaExceedRecordMapper.insert(exceedRecord);
+
+            QuotaExceedHandleResultVO vo = new QuotaExceedHandleResultVO();
+            vo.setHandledCount(1);
+            vo.setSuccess(true);
+            vo.setMessage("已记录配额超限事件并完成处理");
+            return Result.success(vo);
+        } catch (Exception e) {
+            log.error("配额超限处理失败", e);
+            return Result.error(ResultCode.SYSTEM_ERROR, "配额超限处理失败: " + e.getMessage());
+        }
     }
 
     @Override
     public Result<IPage<QuotaExceedRecordVO>> getQuotaExceedRecords(QuotaExceedQueryDTO dto) {
-        // TODO: 实现获取配额超限记录逻辑
-        return Result.success(new Page<>());
+        try {
+            Page<QuotaExceedRecord> page = new Page<>(dto.getPageNum(), dto.getPageSize());
+            LambdaQueryWrapper<QuotaExceedRecord> wrapper = new LambdaQueryWrapper<>();
+            if (dto.getUserId() != null) {
+                wrapper.eq(QuotaExceedRecord::getUserId, dto.getUserId());
+            }
+            if (dto.getQuotaType() != null) {
+                wrapper.eq(QuotaExceedRecord::getQuotaType, dto.getQuotaType());
+            }
+            if (dto.getStartDate() != null) {
+                wrapper.ge(QuotaExceedRecord::getHandledAt, dto.getStartDate().atStartOfDay());
+            }
+            if (dto.getEndDate() != null) {
+                wrapper.le(QuotaExceedRecord::getHandledAt, dto.getEndDate().atTime(23, 59, 59));
+            }
+            wrapper.orderByDesc(QuotaExceedRecord::getHandledAt);
+            IPage<QuotaExceedRecord> res = quotaExceedRecordMapper.selectPage(page, wrapper);
+            return Result.success(res.convert(this::toExceedVO));
+        } catch (Exception e) {
+            log.error("获取配额超限记录失败", e);
+            return Result.error(ResultCode.SYSTEM_ERROR, "获取配额超限记录失败: " + e.getMessage());
+        }
     }
 
     // ==================== 配额重置 ====================
@@ -482,14 +531,64 @@ public class QuotaServiceImpl implements QuotaService {
 
     @Override
     public Result<Void> manualResetUserQuota(Long userId, Integer quotaType, Integer resetType) {
-        // TODO: 实现手动重置用户配额逻辑
-        return Result.success();
+        try {
+            QuotaRecord current = quotaRecordMapper.selectByUserIdAndType(userId, quotaType);
+            if (current == null) {
+                return Result.error(ResultCode.NOT_FOUND, "未找到该用户的配额记录");
+            }
+            // 重置前快照
+            QuotaResetRecord resetRecord = new QuotaResetRecord();
+            copyToHistory(current, resetRecord);
+            resetRecord.setRecordId(genRecordId("QR"));
+            resetRecord.setResetType(resetType);
+            resetRecord.setOperator("admin");
+            resetRecord.setResetAt(LocalDateTime.now());
+            quotaResetRecordMapper.insert(resetRecord);
+
+            // 按重置类型回零: 1-日 2-月 3-全部
+            if (resetType == 1 || resetType == 3) {
+                current.setDailyUsed(0L);
+            }
+            if (resetType == 2 || resetType == 3) {
+                current.setMonthlyUsed(0L);
+                current.setLastResetDate(LocalDate.now());
+            }
+            if (resetType == 3) {
+                current.setTotalUsed(0L);
+            }
+            quotaRecordMapper.updateById(current);
+            log.info("手动重置配额成功: userId={}, quotaType={}, resetType={}", userId, quotaType, resetType);
+            return Result.success();
+        } catch (Exception e) {
+            log.error("手动重置用户配额失败", e);
+            return Result.error(ResultCode.SYSTEM_ERROR, "手动重置用户配额失败: " + e.getMessage());
+        }
     }
 
     @Override
     public Result<IPage<QuotaResetRecordVO>> getResetRecords(QuotaResetQueryDTO dto) {
-        // TODO: 实现获取重置记录逻辑
-        return Result.success(new Page<>());
+        try {
+            Page<QuotaResetRecord> page = new Page<>(dto.getPageNum(), dto.getPageSize());
+            LambdaQueryWrapper<QuotaResetRecord> wrapper = new LambdaQueryWrapper<>();
+            if (dto.getUserId() != null) {
+                wrapper.eq(QuotaResetRecord::getUserId, dto.getUserId());
+            }
+            if (dto.getQuotaType() != null) {
+                wrapper.eq(QuotaResetRecord::getQuotaType, dto.getQuotaType());
+            }
+            if (dto.getStartDate() != null) {
+                wrapper.ge(QuotaResetRecord::getResetAt, dto.getStartDate().atStartOfDay());
+            }
+            if (dto.getEndDate() != null) {
+                wrapper.le(QuotaResetRecord::getResetAt, dto.getEndDate().atTime(23, 59, 59));
+            }
+            wrapper.orderByDesc(QuotaResetRecord::getResetAt);
+            IPage<QuotaResetRecord> res = quotaResetRecordMapper.selectPage(page, wrapper);
+            return Result.success(res.convert(this::toResetVO));
+        } catch (Exception e) {
+            log.error("获取重置记录失败", e);
+            return Result.error(ResultCode.SYSTEM_ERROR, "获取重置记录失败: " + e.getMessage());
+        }
     }
 
     // ==================== 私有方法 ====================
@@ -514,5 +613,54 @@ public class QuotaServiceImpl implements QuotaService {
         QuotaRecordVO vo = new QuotaRecordVO();
         BeanUtils.copyProperties(record, vo);
         return vo;
+    }
+    // ==================== 配额历史记录辅助方法 ====================
+
+    private void copyToHistory(QuotaRecord src, QuotaExceedRecord dst) {
+        dst.setUserId(src.getUserId());
+        dst.setQuotaType(src.getQuotaType());
+        dst.setDailyLimit(src.getDailyLimit());
+        dst.setMonthlyLimit(src.getMonthlyLimit());
+        dst.setTotalLimit(src.getTotalLimit());
+        dst.setDailyUsed(src.getDailyUsed());
+        dst.setMonthlyUsed(src.getMonthlyUsed());
+        dst.setTotalUsed(src.getTotalUsed());
+        dst.setLastResetDate(src.getLastResetDate());
+        dst.setResetDay(src.getResetDay());
+        dst.setEffectiveAt(src.getEffectiveAt());
+        dst.setExpireAt(src.getExpireAt());
+        dst.setStatus(src.getStatus());
+    }
+
+    private void copyToHistory(QuotaRecord src, QuotaResetRecord dst) {
+        dst.setUserId(src.getUserId());
+        dst.setQuotaType(src.getQuotaType());
+        dst.setDailyLimit(src.getDailyLimit());
+        dst.setMonthlyLimit(src.getMonthlyLimit());
+        dst.setTotalLimit(src.getTotalLimit());
+        dst.setDailyUsed(src.getDailyUsed());
+        dst.setMonthlyUsed(src.getMonthlyUsed());
+        dst.setTotalUsed(src.getTotalUsed());
+        dst.setLastResetDate(src.getLastResetDate());
+        dst.setResetDay(src.getResetDay());
+        dst.setEffectiveAt(src.getEffectiveAt());
+        dst.setExpireAt(src.getExpireAt());
+        dst.setStatus(src.getStatus());
+    }
+
+    private QuotaExceedRecordVO toExceedVO(QuotaExceedRecord e) {
+        QuotaExceedRecordVO vo = new QuotaExceedRecordVO();
+        BeanUtils.copyProperties(e, vo);
+        return vo;
+    }
+
+    private QuotaResetRecordVO toResetVO(QuotaResetRecord e) {
+        QuotaResetRecordVO vo = new QuotaResetRecordVO();
+        BeanUtils.copyProperties(e, vo);
+        return vo;
+    }
+
+    private String genRecordId(String prefix) {
+        return prefix + System.nanoTime() + UUID.randomUUID().toString().replace("-", "").substring(0, 6);
     }
 }
