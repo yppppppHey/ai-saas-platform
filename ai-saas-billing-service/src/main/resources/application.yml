@@ -1,9 +1,9 @@
 server:
-  port: 8086
+  port: 8084
 
 spring:
   application:
-    name: billing-service
+    name: ai-saas-billing-service
   cloud:
     nacos:
       discovery:
