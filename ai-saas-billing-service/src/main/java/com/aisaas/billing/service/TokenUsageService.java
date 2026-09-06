@@ -23,6 +23,11 @@ public interface TokenUsageService {
     Result<Void> batchRecordTokenUsage(BatchTokenUsageDTO dto);
 
     /**
+     * 幂等记录 Token 使用（MQ 消费端专用，usageId 为幂等键）
+     */
+    Result<Void> recordTokenUsageIdempotent(TokenUsageRecordDTO dto, String usageId);
+
+    /**
      * 分页查询用户的Token使用记录
      */
     Result<IPage<TokenUsageRecordVO>> queryUserTokenUsage(TokenUsageQueryDTO dto);

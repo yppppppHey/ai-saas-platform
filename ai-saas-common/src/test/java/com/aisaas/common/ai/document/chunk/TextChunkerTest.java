@@ -1,6 +1,7 @@
 package com.aisaas.common.ai.document.chunk;
 
 import com.aisaas.common.ai.document.Document;
+import java.util.List;
 import com.aisaas.common.ai.document.DocumentChunk;
 import org.junit.jupiter.api.Test;
 
