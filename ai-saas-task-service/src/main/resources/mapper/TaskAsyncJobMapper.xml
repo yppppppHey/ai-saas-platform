@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aisaas.task.mapper.TaskAsyncJobMapper">
+
+    <resultMap id="BaseResultMap" type="com.aisaas.task.entity.TaskAsyncJob">
+        <id column="id" property="id"/>
+        <result column="task_id" property="taskId"/>
+        <result column="task_type" property="taskType"/>
+        <result column="task_name" property="taskName"/>
+        <result column="user_id" property="userId"/>
+        <result column="status" property="status"/>
+        <result column="priority" property="priority"/>
+        <result column="progress" property="progress"/>
+        <result column="progress_detail" property="progressDetail"/>
+        <result column="input_params" property="inputParams"/>
+        <result column="output_result" property="outputResult"/>
+        <result column="output_url" property="outputUrl"/>
+        <result column="model_id" property="modelId"/>
+        <result column="provider" property="provider"/>
+        <result column="prompt_tokens" property="promptTokens"/>
+        <result column="completion_tokens" property="completionTokens"/>
+        <result column="total_tokens" property="totalTokens"/>
+        <result column="cost_usd" property="costUsd"/>
+        <result column="started_at" property="startedAt"/>
+        <result column="completed_at" property="completedAt"/>
+        <result column="cancelled_at" property="cancelledAt"/>
+        <result column="timeout_at" property="timeoutAt"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="max_retry" property="maxRetry"/>
+        <result column="error_code" property="errorCode"/>
+        <result column="error_msg" property="errorMsg"/>
+        <result column="stack_trace" property="stackTrace"/>
+        <result column="worker_node" property="workerNode"/>
+        <result column="mq_message_id" property="mqMessageId"/>
+        <result column="trace_id" property="traceId"/>
+        <result column="callback_url" property="callbackUrl"/>
+        <result column="callback_status" property="callbackStatus"/>
+        <result column="callback_count" property="callbackCount"/>
+        <result column="last_callback_at" property="lastCallbackAt"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+</mapper>

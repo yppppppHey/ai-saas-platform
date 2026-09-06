@@ -1,0 +1,5 @@
+# Spring Boot Auto-Configuration
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.aisaas.common.config.MyBatisPlusConfig,\
+com.aisaas.common.config.RedisConfig,\
+com.aisaas.common.config.RocketMQConfig
