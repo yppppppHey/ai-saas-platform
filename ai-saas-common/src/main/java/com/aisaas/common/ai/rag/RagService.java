@@ -359,6 +359,21 @@ public class RagService {
         private String id;
 
         /**
+         * 关联文档ID（与 id 等价，用于业务层引用）
+         */
+        private String documentId;
+
+        /**
+         * 分块序号
+         */
+        private Integer chunkIndex;
+
+        /**
+         * 文档标题
+         */
+        private String documentTitle;
+
+        /**
          * 文档内容
          */
         private String content;

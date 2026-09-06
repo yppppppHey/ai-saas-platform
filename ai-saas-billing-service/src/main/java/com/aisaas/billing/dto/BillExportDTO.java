@@ -1,0 +1,39 @@
+package com.aisaas.billing.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+/**
+ * 账单导出DTO
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class BillExportDTO implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    /** 用户ID */
+    private Long userId;
+
+    /** 账单类型 */
+    private Integer billType;
+
+    /** 状态 */
+    private Integer status;
+
+    /** 起始日期 */
+    private LocalDate startDate;
+
+    /** 截止日期 */
+    private LocalDate endDate;
+}

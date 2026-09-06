@@ -68,7 +68,7 @@ public class RateLimiterConfig {
     public KeyResolver apiKeyResolver() {
         return exchange -> {
             String path = exchange.getRequest().getPath().value();
-            String method = exchange.getRequest().getMethodValue();
+            String method = exchange.getRequest().getMethod().name();
             return Mono.just("api:" + method + ":" + path);
         };
     }

@@ -3,6 +3,7 @@ package com.aisaas.gateway.filter;
 import com.aisaas.gateway.config.GatewayConfig;
 import com.aisaas.gateway.util.JwtUtil;
 import io.jsonwebtoken.Claims;
+import org.springframework.web.server.ServerWebExchange;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -44,7 +45,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         ServerHttpResponse response = exchange.getResponse();
         String path = request.getPath().value();
-        String method = request.getMethodValue();
+        String method = request.getMethod().name();
         
         log.debug("JWT Auth Filter - Path: {}, Method: {}", path, method);
 

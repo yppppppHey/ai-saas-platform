@@ -7,7 +7,7 @@ import com.aisaas.billing.mapper.PriceConfigMapper;
 import com.aisaas.billing.mapper.TokenUsageRecordMapper;
 import com.aisaas.billing.service.TokenUsageService;
 import com.aisaas.common.result.Result;
-import com.aisaas.common.result.ResultCode;
+import com.aisaas.common.constant.ResultCode;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;

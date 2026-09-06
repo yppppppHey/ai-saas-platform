@@ -58,7 +58,7 @@ public class LoopNodeExecutor implements NodeExecutor {
             if (shouldContinue) {
                 // 增加迭代计数
                 currentIteration++;
-                context.addContextData(node.getId() + ".iteration", currentIteration);
+                context.setContextData(node.getId() + ".iteration", currentIteration);
 
                 // 检查是否超过最大迭代次数
                 if (currentIteration > maxIterations) {
@@ -70,7 +70,7 @@ public class LoopNodeExecutor implements NodeExecutor {
                 }
             } else {
                 // 循环结束，清理上下文
-                context.addContextData(node.getId() + ".iteration", null);
+                context.setContextData(node.getId() + ".iteration", null);
             }
 
             return NodeExecutionResult.success(outputs);

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -185,7 +186,11 @@ public class ChatPromptTemplateServiceImpl extends ServiceImpl<ChatPromptTemplat
         Page<ChatPromptTemplate> templatePage = templateMapper.selectTemplatePage(
                 page, keyword, category, templateType, isBuiltin);
 
-        return templatePage.convert(this::convertToListDTO);
+        Page<PromptTemplateListDTO> result = new Page<>(templatePage.getCurrent(), templatePage.getSize(), templatePage.getTotal());
+        result.setRecords(templatePage.getRecords().stream()
+                .map(this::convertToListDTO)
+                .collect(Collectors.toList()));
+        return result;
     }
 
     @Override

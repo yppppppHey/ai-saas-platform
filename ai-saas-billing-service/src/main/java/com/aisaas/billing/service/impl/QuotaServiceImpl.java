@@ -7,7 +7,7 @@ import com.aisaas.billing.mapper.QuotaConfigMapper;
 import com.aisaas.billing.mapper.QuotaRecordMapper;
 import com.aisaas.billing.service.QuotaService;
 import com.aisaas.common.result.Result;
-import com.aisaas.common.result.ResultCode;
+import com.aisaas.common.constant.ResultCode;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -332,7 +332,7 @@ public class QuotaServiceImpl implements QuotaService {
             // 先检查配额
             Result<QuotaCheckResultVO> checkResult = checkQuota(userId, quotaType, amount);
             if (!checkResult.isSuccess()) {
-                return Result.error(checkResult.getCode(), checkResult.getMsg());
+                return Result.error(checkResult.getCode(), checkResult.getMessage());
             }
             if (!checkResult.getData().getAvailable()) {
                 return Result.error(ResultCode.BUSINESS_ERROR, checkResult.getData().getReason());

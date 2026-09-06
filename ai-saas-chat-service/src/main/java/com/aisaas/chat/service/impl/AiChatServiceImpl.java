@@ -410,6 +410,27 @@ public class AiChatServiceImpl implements AiChatService {
         return message;
     }
 
+    private ChatMessage saveAiMessage(Long userId, Long conversationId, Long parentId,
+                                      String content, String model, String provider,
+                                      int inputTokens, int outputTokens, long totalTime) {
+        ChatMessage message = new ChatMessage();
+        message.setConversationId(conversationId);
+        message.setUserId(userId);
+        message.setMessageType(2); // AI回复
+        message.setContentType("text");
+        message.setContent(content);
+        message.setParentId(parentId);
+        message.setModel(model);
+        message.setModelVersion(provider);
+        message.setInputTokens(inputTokens);
+        message.setOutputTokens(outputTokens);
+        message.setTotalTokens(inputTokens + outputTokens);
+        message.setGenerateTime(totalTime);
+        message.setStatus(1); // 完成
+        messageMapper.insert(message);
+        return message;
+    }
+
     private ChatMessage createAiMessage(Long userId, Long conversationId, Long parentId, String model) {
         ChatMessage message = new ChatMessage();
         message.setConversationId(conversationId);

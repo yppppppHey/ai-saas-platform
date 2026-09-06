@@ -42,7 +42,7 @@ public class TaskProgressService {
             progressDTO.setUpdatedAt(LocalDateTime.now());
 
             String key = getProgressKey(taskId);
-            redisUtils.set(key, JsonUtils.toJson(progressDTO), 3600);
+            redisUtils.set(key, JsonUtils.toJson(progressDTO), 3600, TimeUnit.SECONDS);
 
             notifyProgressUpdate(taskId, progressDTO);
 
@@ -55,7 +55,7 @@ public class TaskProgressService {
     public TaskProgressDTO getProgress(String taskId) {
         try {
             String key = getProgressKey(taskId);
-            String json = redisUtils.get(key);
+            String json = (String) redisUtils.get(key);
             if (json != null) {
                 return JsonUtils.parseObject(json, TaskProgressDTO.class);
             }

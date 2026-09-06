@@ -7,6 +7,10 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
+import reactor.core.publisher.Flux;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -32,11 +36,13 @@ import java.util.regex.Pattern;
 @Component
 public class SecurityFilter implements GlobalFilter, Ordered {
 
+    private static final String TRACE_ID_KEY = "traceId";
+
     // XSS攻击模式
     private static final Pattern[] XSS_PATTERNS = {
             Pattern.compile("<script>(.*?)</script>", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("src[\n]*=[\r\n]*\\'(.*?)\\'", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
-            Pattern.compile("src[\n]*=[\r\n]*\\\"(.*?)\\\"", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
+            Pattern.compile("src[^\n]*=[\r\n]*\\'(.*?)\\'", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
+            Pattern.compile("src[^\n]*=[\r\n]*\\\"(.*?)\\\"", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
             Pattern.compile("</script>", Pattern.CASE_INSENSITIVE),
             Pattern.compile("<script(.*?)>", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
             Pattern.compile("eval\\((.*?)\\)", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
@@ -79,7 +85,7 @@ public class SecurityFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
-        String method = request.getMethodValue();
+        String method = request.getMethod().name();
         String clientIp = getClientIp(request);
 
         // 1. IP黑名单检查
@@ -229,7 +235,7 @@ public class SecurityFilter implements GlobalFilter, Ordered {
             return false;
         }
         
-        String method = request.getMethodValue();
+        String method = request.getMethod().name();
         if (!"POST".equals(method) && !"PUT".equals(method) && !"PATCH".equals(method)) {
             return false;
         }
@@ -268,7 +274,7 @@ public class SecurityFilter implements GlobalFilter, Ordered {
                     ServerHttpRequest mutatedRequest = new ServerHttpRequestDecorator(exchange.getRequest()) {
                         @Override
                         public Flux<DataBuffer> getBody() {
-                            return Flux.just(bufferFactory().wrap(bytes));
+                            return Flux.just(exchange.getResponse().bufferFactory().wrap(bytes));
                         }
                     };
                     
@@ -286,7 +292,7 @@ public class SecurityFilter implements GlobalFilter, Ordered {
             return false;
         }
         
-        String method = request.getMethodValue();
+        String method = request.getMethod().name();
         if (!"POST".equals(method) && !"PUT".equals(method) && !"PATCH".equals(method) && !"GET".equals(method)) {
             return false;
         }
@@ -342,7 +348,7 @@ public class SecurityFilter implements GlobalFilter, Ordered {
                     ServerHttpRequest mutatedRequest = new ServerHttpRequestDecorator(request) {
                         @Override
                         public Flux<DataBuffer> getBody() {
-                            return Flux.just(bufferFactory().wrap(bytes));
+                            return Flux.just(exchange.getResponse().bufferFactory().wrap(bytes));
                         }
                     };
                     
@@ -385,6 +391,23 @@ public class SecurityFilter implements GlobalFilter, Ordered {
                 System.currentTimeMillis()
         );
         
+        DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
+        return response.writeWith(Mono.just(buffer));
+    }
+
+    private Mono<Void> payloadTooLarge(ServerWebExchange exchange) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(HttpStatus.PAYLOAD_TOO_LARGE);
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
+        String traceId = exchange.getAttribute(TRACE_ID_KEY);
+
+        String body = String.format(
+                "{\"code\":413,\"message\":\"请求体过大\",\"data\":null,\"traceId\":\"%s\",\"timestamp\":%d}",
+                traceId != null ? traceId : "",
+                System.currentTimeMillis()
+        );
+
         DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
         return response.writeWith(Mono.just(buffer));
     }

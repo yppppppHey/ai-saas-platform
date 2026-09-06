@@ -23,6 +23,7 @@ import java.util.List;
 public class VipController {
 
     private final VipService vipService;
+    private final VipMembershipMapper vipMembershipMapper;
 
     /**
      * 获取当前用户的VIP信息

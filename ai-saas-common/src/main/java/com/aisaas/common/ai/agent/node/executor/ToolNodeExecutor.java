@@ -41,7 +41,7 @@ public class ToolNodeExecutor implements NodeExecutor {
             }
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> toolParams = (Map<String, Object>) node.getConfig("toolParams", new HashMap<>());
+            Map<String, Object> toolParams = (Map<String, Object>) node.getConfig("toolParams", new HashMap<String, Object>());
 
             // 解析参数中的变量
             Map<String, Object> resolvedParams = resolveParameters(toolParams, context);

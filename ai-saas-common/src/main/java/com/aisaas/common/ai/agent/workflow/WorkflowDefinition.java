@@ -258,6 +258,7 @@ public class WorkflowDefinition implements Serializable {
     }
 
     @Data
+    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ValidationResult {

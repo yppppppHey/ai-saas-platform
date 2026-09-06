@@ -1,5 +1,9 @@
 package com.aisaas.common.mq;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
@@ -7,10 +11,12 @@ import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -80,10 +86,10 @@ public class DeadLetterQueueHandler {
             rocketMQTemplate.syncSend(deadLetterTopic, mqMessage);
 
             log.info("Message sent to dead letter queue: {}, reason: {}",
-                    message.getMessageId(), reason);
+                    extractMessageId(message), reason);
 
         } catch (Exception e) {
-            log.error("Failed to send message to dead letter queue: {}", message.getMessageId(), e);
+            log.error("Failed to send message to dead letter queue: {}", extractMessageId(message), e);
         }
     }
 
@@ -152,9 +158,14 @@ public class DeadLetterQueueHandler {
 
     // ============ 私有方法 ============
 
+    private String extractMessageId(Message<?> message) {
+        UUID headerId = message.getHeaders().getId();
+        return headerId != null ? headerId.toString() : UUID.randomUUID().toString();
+    }
+
     private <T> DeadLetterMessage<T> buildDeadLetterMessage(Message<T> message, String reason, Throwable exception) {
         return DeadLetterMessage.<T>builder()
-                .messageId(message.getMessageId() != null ? message.getMessageId() : UUID.randomUUID().toString())
+                .messageId(extractMessageId(message))
                 .originalMessage(message)
                 .reason(reason)
                 .exceptionMessage(exception != null ? exception.getMessage() : null)

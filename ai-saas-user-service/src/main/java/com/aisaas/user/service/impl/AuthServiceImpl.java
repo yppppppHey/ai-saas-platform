@@ -54,7 +54,7 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
 
         // 验证验证码
         String verifyKey = RedisKeys.USER_VERIFY_CODE + registerDTO.getVerifyKey();
-        String cachedCode = redisUtils.get(verifyKey);
+        String cachedCode = (String) redisUtils.get(verifyKey);
         if (!registerDTO.getVerifyCode().equalsIgnoreCase(cachedCode)) {
             return Result.error(ResultCode.BAD_REQUEST, "验证码错误或已过期");
         }
@@ -218,7 +218,7 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     @Override
     public Result<Boolean> verifyCode(String target, String code, String key) {
         String redisKey = RedisKeys.USER_VERIFY_CODE + key;
-        String cachedCode = redisUtils.get(redisKey);
+        String cachedCode = (String) redisUtils.get(redisKey);
         
         if (cachedCode == null) {
             return Result.success(false);

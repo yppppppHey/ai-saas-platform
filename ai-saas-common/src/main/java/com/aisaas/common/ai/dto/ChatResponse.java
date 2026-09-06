@@ -84,6 +84,16 @@ public class ChatResponse {
     }
 
     /**
+     * 获取首个返回消息的角色
+     */
+    public String getRole() {
+        if (choices != null && !choices.isEmpty() && choices.get(0).getMessage() != null) {
+            return choices.get(0).getMessage().getRole();
+        }
+        return null;
+    }
+
+    /**
      * 获取工具调用
      */
     public List<ChatRequest.ToolCall> getToolCalls() {
@@ -110,6 +120,11 @@ public class ChatResponse {
          * 消息
          */
         private Message message;
+
+        /**
+         * 流式输出时的增量消息（SSE 场景）
+         */
+        private Message delta;
 
         /**
          * 完成原因

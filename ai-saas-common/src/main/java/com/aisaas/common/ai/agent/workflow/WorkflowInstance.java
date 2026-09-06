@@ -172,6 +172,18 @@ public class WorkflowInstance implements Serializable {
         return STATUS_FAILED.equals(status);
     }
 
+    public boolean canPause() {
+        return STATUS_RUNNING.equals(status) || STATUS_WAITING_FOR_INPUT.equals(status);
+    }
+
+    public boolean canResume() {
+        return STATUS_PAUSED.equals(status);
+    }
+
+    public boolean canCancel() {
+        return isActive();
+    }
+
     /**
      * 设置变量
      */

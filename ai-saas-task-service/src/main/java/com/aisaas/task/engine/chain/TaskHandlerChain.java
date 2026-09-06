@@ -53,8 +53,4 @@ public class TaskHandlerChain {
         });
     }
 
-    @Override
-    public void execute(TaskExecutionContext context) {
-        throw new UnsupportedOperationException("此方法是执行回调，不应直接调用");
-    }
 }
