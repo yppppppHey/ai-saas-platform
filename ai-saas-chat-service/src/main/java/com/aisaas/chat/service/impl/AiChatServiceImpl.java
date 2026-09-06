@@ -588,4 +588,73 @@ public class AiChatServiceImpl implements AiChatService {
         // 更新最后消息时间
         conversationMapper.updateLastMessageTime(conversationId, LocalDateTime.now());
     }
+    @Override
+    public AiChatResponseDTO regenerateReply(Long userId, Long conversationId, Long userMessageId,
+                                            String editedContent, String model) {
+        ChatConversation conversation = getAndValidateConversation(userId, conversationId);
+        String actualModel = StringUtils.hasText(model) ? model : conversation.getModel();
+        AIProvider provider = getAIProvider(actualModel, conversation.getProvider());
+
+        // 查找该用户消息对应的助手回复(若存在则原地更新, 否则新建)
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ChatMessage> qw =
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+        qw.eq(ChatMessage::getParentId, userMessageId).eq(ChatMessage::getMessageType, 2);
+        ChatMessage aiReply = messageMapper.selectOne(qw);
+
+        // 构建上下文(使用编辑后的内容)
+        List<ChatRequest.Message> contextMessages = buildContextWithCurrent(
+                conversationId, editedContent, null, null, conversation.getSystemPrompt(), 10);
+
+        ChatRequest chatRequest = ChatRequest.builder()
+                .model(actualModel)
+                .messages(contextMessages)
+                .temperature(0.7)
+                .stream(false)
+                .build();
+
+        long startTime = System.currentTimeMillis();
+        ChatResponse response = modelFailoverService.chatWithFailover(conversation.getProvider(), chatRequest);
+        long totalTime = System.currentTimeMillis() - startTime;
+
+        if (!response.isSuccess()) {
+            throw new BizException("AI调用失败: " + (response.getError() != null
+                    ? response.getError().getMessage() : "未知错误"));
+        }
+        String aiContent = response.getContent();
+        int inputTokens = response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
+        int outputTokens = response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
+
+        if (aiReply == null) {
+            aiReply = saveAiMessage(userId, conversationId, userMessageId, aiContent, actualModel,
+                    provider.getProviderName(), inputTokens, outputTokens, (int) totalTime);
+        } else {
+            aiReply.setContent(aiContent);
+            aiReply.setModel(actualModel);
+            aiReply.setModelVersion(provider.getProviderName());
+            aiReply.setInputTokens(inputTokens);
+            aiReply.setOutputTokens(outputTokens);
+            aiReply.setTotalTokens(inputTokens + outputTokens);
+            aiReply.setEditStatus(1);
+            aiReply.setEditedAt(java.time.LocalDateTime.now());
+            messageMapper.updateById(aiReply);
+        }
+
+        // 复用统一计费/链路逻辑(重新生成即再次消耗 token, 与一次新对话同等计费)
+        recordTokenUsage(conversationId, aiReply.getId(), inputTokens, outputTokens,
+                StringUtils.hasText(response.getModel()) ? response.getModel() : actualModel);
+        updateConversationStats(conversationId);
+
+        return AiChatResponseDTO.builder()
+                .messageId(aiReply.getId())
+                .conversationId(conversationId)
+                .type("complete")
+                .fullContent(aiContent)
+                .done(true)
+                .model(actualModel)
+                .inputTokens(inputTokens)
+                .outputTokens(outputTokens)
+                .totalTokens(inputTokens + outputTokens)
+                .totalTime(totalTime)
+                .build();
+    }
 }

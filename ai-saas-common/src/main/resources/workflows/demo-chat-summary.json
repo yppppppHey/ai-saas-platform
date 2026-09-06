@@ -1,0 +1,75 @@
+{
+  "id": "demo-chat-summary",
+  "name": "对话摘要示例工作流",
+  "description": "读取一段对话内容，调用 LLM 生成摘要，并输出结果。",
+  "version": "1.0.0",
+  "status": "PUBLISHED",
+  "startNodeId": "start",
+  "timeoutSeconds": 300,
+  "maxRetries": 3,
+  "retryIntervalSeconds": 5,
+  "nodes": [
+    {
+      "id": "start",
+      "name": "开始",
+      "type": "START",
+      "startNode": true,
+      "inputs": {}
+    },
+    {
+      "id": "summarize",
+      "name": "生成摘要",
+      "type": "LLM",
+      "config": {
+        "prompt": "请对以下对话内容进行摘要：\n${conversationText}",
+        "model": "gpt-4o-mini",
+        "provider": "openai"
+      },
+      "inputs": {
+        "conversationText": "${inputText}"
+      },
+      "outputs": {
+        "summary": "summary"
+      }
+    },
+    {
+      "id": "end",
+      "name": "结束",
+      "type": "END",
+      "endNode": true,
+      "inputs": {
+        "result": "${summarize.summary}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "sourceNodeId": "start",
+      "targetNodeId": "summarize",
+      "type": "DEFAULT"
+    },
+    {
+      "id": "e2",
+      "sourceNodeId": "summarize",
+      "targetNodeId": "end",
+      "type": "DEFAULT"
+    }
+  ],
+  "variables": {},
+  "inputParameters": {
+    "inputText": {
+      "name": "inputText",
+      "type": "string",
+      "description": "待摘要的对话文本",
+      "required": true
+    }
+  },
+  "outputs": {
+    "summary": {
+      "name": "summary",
+      "type": "string",
+      "description": "生成的摘要内容"
+    }
+  }
+}

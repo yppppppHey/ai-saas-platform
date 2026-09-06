@@ -3,6 +3,7 @@ package com.aisaas.user.service.impl;
 import com.aisaas.common.constant.ResultCode;
 import com.aisaas.common.result.Result;
 import com.aisaas.user.dto.VipInfoDTO;
+import com.aisaas.user.entity.UserAccount;
 import com.aisaas.user.entity.VipMembership;
 import com.aisaas.user.mapper.VipMembershipMapper;
 import com.aisaas.user.service.VipService;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class VipServiceImpl extends ServiceImpl<VipMembershipMapper, VipMembership> implements VipService {
 
+    private final com.aisaas.user.mapper.UserAccountMapper userAccountMapper;
     private final VipMembershipMapper vipMembershipMapper;
 
     @Override
@@ -172,9 +174,36 @@ public class VipServiceImpl extends ServiceImpl<VipMembershipMapper, VipMembersh
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 * * * ?")
     public void checkAndExpireVip() {
-        // TODO: 实现检查并处理过期VIP会员的定时任务
-        log.info("检查并处理过期VIP会员");
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<VipMembership> wrapper =
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+        wrapper.eq(VipMembership::getStatus, 1)
+               .isNotNull(VipMembership::getExpireAt)
+               .lt(VipMembership::getExpireAt, java.time.LocalDateTime.now());
+        java.util.List<VipMembership> expired = vipMembershipMapper.selectList(wrapper);
+        if (expired.isEmpty()) {
+            return;
+        }
+        int count = 0;
+        for (VipMembership membership : expired) {
+            membership.setStatus(0); // 0-已过期
+            membership.setUpdatedAt(java.time.LocalDateTime.now());
+            vipMembershipMapper.updateById(membership);
+            count++;
+            // 降级用户VIP标识，保证后续鉴权/配额立即生效
+            try {
+                UserAccount user = userAccountMapper.selectById(membership.getUserId());
+                if (user != null && user.getVipLevel() != null && user.getVipLevel() > 0) {
+                    user.setVipLevel(0);
+                    user.setUpdatedAt(java.time.LocalDateTime.now());
+                    userAccountMapper.updateById(user);
+                }
+            } catch (Exception e) {
+                log.warn("VIP过期后降级用户等级失败: userId={}", membership.getUserId(), e);
+            }
+        }
+        log.info("VIP过期处理完成: 共 {} 条会员到期", count);
     }
 
     @Override

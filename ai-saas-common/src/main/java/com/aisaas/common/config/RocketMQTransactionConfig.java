@@ -7,6 +7,7 @@ import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -24,6 +25,10 @@ public class RocketMQTransactionConfig {
 
     @Autowired
     private RocketMQTemplate rocketMQTemplate;
+
+    // 应用事件发布器：用于在本地事务阶段把业务负载交给业务侧处理
+    @Autowired(required = false)
+    private ApplicationEventPublisher eventPublisher;
 
     // 事务状态记录（实际项目中应该使用Redis或数据库）
     private static final Map<String, TransactionRecord> transactionRecords = new ConcurrentHashMap<>();
@@ -147,18 +152,37 @@ public class RocketMQTransactionConfig {
     }
 
     /**
-     * 执行本地业务逻辑（示例）
-     * 实际项目中应该调用具体的业务服务
+     * 执行本地业务逻辑。
+     *
+     * <p>本地事务阶段的核心实现：通过 {@link ApplicationEventPublisher} 发布
+     * {@link TransactionBusinessEvent}，由业务侧使用 {@code @EventListener} 订阅并执行真实的
+     * 本地事务（写库、扣减库存等）。由于 Spring 默认使用同步事件多播器，监听器会在此方法返回前
+     * 完成执行；若任一监听器抛出异常，则判定本地事务失败，进而触发 RocketMQ 半消息回滚。</p>
+     *
+     * <p>若容器中不存在 {@link ApplicationEventPublisher}（极少见，非 Spring 环境），
+     * 则仅记录日志并返回 {@code true}，保证不破坏既有调用方行为。</p>
      *
      * @param transactionId 事务ID
-     * @param payload       业务数据
+     * @param payload       业务数据（通常为 JSON 字符串）
      * @return 业务执行是否成功
      */
     private boolean executeLocalBusiness(String transactionId, String payload) {
-        // TODO: 实现具体的本地业务逻辑
-        log.info("Executing business logic for transaction: {}", transactionId);
-        // 模拟业务执行成功
-        return true;
+        log.info("Executing local business logic for transaction: {}", transactionId);
+
+        if (eventPublisher == null) {
+            log.warn("No ApplicationEventPublisher available, skip local business for transaction: {}",
+                    transactionId);
+            return true;
+        }
+
+        try {
+            eventPublisher.publishEvent(new TransactionBusinessEvent(transactionId, payload));
+            log.info("Local business event dispatched successfully for transaction: {}", transactionId);
+            return true;
+        } catch (Exception e) {
+            log.error("Local business execution failed for transaction: {}", transactionId, e);
+            return false;
+        }
     }
 
     /**

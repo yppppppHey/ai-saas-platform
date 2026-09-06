@@ -56,6 +56,9 @@ public class UserAccount extends BaseEntity {
      */
     private Integer status;
 
+    @TableField("vip_level")
+    private Integer vipLevel;
+
     /**
      * 最后登录时间
      */

@@ -17,6 +17,12 @@ public class Permission extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     /**
+     * 子权限（树形展示用，非数据库字段）
+     */
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private java.util.List<Permission> children = new java.util.ArrayList<>();
+
+    /**
      * 权限编码
      */
     @TableField("permission_code")

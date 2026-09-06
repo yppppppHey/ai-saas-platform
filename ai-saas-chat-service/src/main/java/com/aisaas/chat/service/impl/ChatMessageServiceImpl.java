@@ -5,6 +5,7 @@ import com.aisaas.chat.entity.ChatConversation;
 import com.aisaas.chat.entity.ChatMessage;
 import com.aisaas.chat.mapper.ChatConversationMapper;
 import com.aisaas.chat.mapper.ChatMessageMapper;
+import com.aisaas.chat.service.AiChatService;
 import com.aisaas.chat.service.ChatMessageService;
 import com.aisaas.common.exception.BizException;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -32,6 +33,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
 
     private final ChatMessageMapper messageMapper;
     private final ChatConversationMapper conversationMapper;
+    private final AiChatService aiChatService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -106,8 +108,12 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
             ChatMessage aiReply = messageMapper.selectOne(wrapper);
 
             if (aiReply != null) {
-                // 这里可以触发重新生成逻辑
-                log.info("需要重新生成AI回复: messageId={}", aiReply.getId());
+                try {
+                    aiChatService.regenerateReply(userId, message.getConversationId(), messageId,
+                            dto.getContent(), null);
+                } catch (Exception e) {
+                    log.warn("重新生成AI回复失败(不影响编辑结果): messageId={}", messageId, e);
+                }
             }
         }
 

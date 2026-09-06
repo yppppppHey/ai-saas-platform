@@ -149,16 +149,121 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public void downloadDocument(String docId, Long userId, HttpServletResponse response) {
-        Result.error(ResultCode.NOT_IMPLEMENTED, "功能开发中");
+        try {
+            RagDocument document = documentMapper.selectByDocId(docId);
+            if (document == null || document.getIsDeleted() == 1) {
+                writeJsonError(response, HttpServletResponse.SC_NOT_FOUND, "文档不存在");
+                return;
+            }
+            if (!document.getUserId().equals(userId)) {
+                writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "无权下载该文档");
+                return;
+            }
+
+            // 优先返回解析出的文本内容；原始文件字节依赖 MinIO/OSS（尚未接入），无法直接回源
+            String content = document.getExtractionResult();
+            if (content == null || content.isBlank()) {
+                writeJsonError(response, HttpServletResponse.SC_CONFLICT,
+                        "文档原始文件未持久化存储（对象存储待接入），且无已解析文本可下载");
+                return;
+            }
+
+            String fileName = document.getDocName() != null ? document.getDocName() : docId + ".txt";
+            if (!fileName.contains(".")) {
+                fileName = fileName + ".txt";
+            }
+            response.setContentType("text/plain; charset=UTF-8");
+            response.setCharacterEncoding("UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+                    + java.net.URLEncoder.encode(fileName, java.nio.charset.StandardCharsets.UTF_8)
+                            .replace("+", "%20"));
+            response.getOutputStream().write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            response.getOutputStream().flush();
+
+            log.info("文档下载成功: docId={}, userId={}, fileName={}", docId, userId, fileName);
+        } catch (Exception e) {
+            log.error("文档下载失败: docId={}, userId={}", docId, userId, e);
+            writeJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "文档下载失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 向客户端写回 JSON 错误信息（下载场景下不走统一 Result 包装）
+     */
+    private void writeJsonError(HttpServletResponse response, int status, String message) {
+        try {
+            response.setStatus(status);
+            response.setContentType("application/json; charset=UTF-8");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"code\":" + status + ",\"message\":\"" + message + "\"}");
+        } catch (IOException e) {
+            log.error("写回下载错误响应失败", e);
+        }
     }
 
     @Override
     public Result<DocVersionDTO> getVersionHistory(String docId, Long userId) {
-        return Result.success(new DocVersionDTO());
+        RagDocument document = documentMapper.selectByDocId(docId);
+        if (document == null || document.getIsDeleted() == 1) {
+            return Result.error(ResultCode.NOT_FOUND, "文档不存在");
+        }
+        if (!document.getUserId().equals(userId)) {
+            return Result.error(ResultCode.FORBIDDEN, "无权查看该文档版本");
+        }
+
+        List<RagDocument> versionRows = documentMapper.selectVersionsByDocId(docId);
+        DocVersionDTO dto = new DocVersionDTO();
+        dto.setDocId(docId);
+        dto.setDocName(document.getDocName());
+        dto.setCurrentVersion(document.getVersion());
+        dto.setVersions(versionRows.stream().map(row -> {
+            DocVersionDTO.VersionInfo info = new DocVersionDTO.VersionInfo();
+            info.setVersionId(row.getId());
+            info.setVersion(row.getVersion());
+            info.setSize(row.getDocSize());
+            info.setCreatedAt(row.getCreatedAt());
+            boolean latest = row.getIsLatest() != null && row.getIsLatest() == 1;
+            info.setIsLatest(latest);
+            info.setChangeLog(latest ? "当前版本" : "历史版本");
+            return info;
+        }).collect(Collectors.toList()));
+
+        return Result.success(dto);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Result<Boolean> rollbackVersion(String docId, Long versionId, Long userId) {
+        RagDocument current = documentMapper.selectByDocId(docId);
+        if (current == null || current.getIsDeleted() == 1) {
+            return Result.error(ResultCode.NOT_FOUND, "文档不存在");
+        }
+        if (!current.getUserId().equals(userId)) {
+            return Result.error(ResultCode.FORBIDDEN, "无权回滚该文档");
+        }
+
+        RagDocument target = documentMapper.selectById(versionId);
+        if (target == null || target.getIsDeleted() == 1 || !docId.equals(target.getDocId())) {
+            return Result.error(ResultCode.NOT_FOUND, "目标版本不存在");
+        }
+        if (target.getId().equals(current.getId())) {
+            return Result.error(ResultCode.BAD_REQUEST, "目标版本已是当前版本");
+        }
+
+        // 将目标版本的文档元数据与内容恢复到当前行，并递增版本号（保持 docId 唯一行的数据模型）
+        Integer previousVersion = current.getVersion();
+        current.setDocName(target.getDocName());
+        current.setDocSize(target.getDocSize());
+        current.setPageCount(target.getPageCount());
+        current.setCharCount(target.getCharCount());
+        current.setExtractionResult(target.getExtractionResult());
+        current.setVersion(previousVersion != null ? previousVersion + 1 : 1);
+        current.setUpdatedAt(LocalDateTime.now());
+        documentMapper.updateById(current);
+
+        log.info("文档版本回滚成功: docId={}, userId={}, fromVersion={}, toVersionSnapshot={}, newVersion={}",
+                docId, userId, previousVersion, target.getVersion(), current.getVersion());
         return Result.success(true);
     }
 

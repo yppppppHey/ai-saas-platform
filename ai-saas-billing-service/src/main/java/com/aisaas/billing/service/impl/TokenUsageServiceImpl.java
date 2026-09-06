@@ -303,8 +303,48 @@ public class TokenUsageServiceImpl implements TokenUsageService {
 
     @Override
     public Result<String> exportUsageRecords(TokenUsageExportDTO dto) {
-        // TODO: 实现导出逻辑
-        return Result.success("");
+        try {
+            LambdaQueryWrapper<TokenUsageRecord> wrapper = new LambdaQueryWrapper<>();
+            if (dto.getUserId() != null) {
+                wrapper.eq(TokenUsageRecord::getUserId, dto.getUserId());
+            }
+            if (dto.getStartDate() != null) {
+                wrapper.ge(TokenUsageRecord::getCreatedAt, dto.getStartDate().atStartOfDay());
+            }
+            if (dto.getEndDate() != null) {
+                wrapper.le(TokenUsageRecord::getCreatedAt, dto.getEndDate().atTime(23, 59, 59));
+            }
+            if (org.springframework.util.StringUtils.hasText(dto.getProvider())) {
+                wrapper.eq(TokenUsageRecord::getProvider, dto.getProvider());
+            }
+            if (org.springframework.util.StringUtils.hasText(dto.getModelId())) {
+                wrapper.eq(TokenUsageRecord::getModelId, dto.getModelId());
+            }
+            if (org.springframework.util.StringUtils.hasText(dto.getOperationType())) {
+                wrapper.eq(TokenUsageRecord::getOperationType, dto.getOperationType());
+            }
+            wrapper.orderByDesc(TokenUsageRecord::getCreatedAt);
+            List<TokenUsageRecord> list = tokenUsageRecordMapper.selectList(wrapper);
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("记录ID,用户ID,模型,供应商,操作类型,输入Token,输出Token,总Token,成本,创建时间\n");
+            for (TokenUsageRecord r : list) {
+                sb.append(csvCell(r.getUsageId())).append(",")
+                  .append(csvCell(r.getUserId())).append(",")
+                  .append(csvCell(r.getModelId())).append(",")
+                  .append(csvCell(r.getProvider())).append(",")
+                  .append(csvCell(r.getOperationType())).append(",")
+                  .append(csvCell(r.getPromptTokens())).append(",")
+                  .append(csvCell(r.getCompletionTokens())).append(",")
+                  .append(csvCell(r.getTotalTokens())).append(",")
+                  .append(csvCell(r.getTotalCost())).append(",")
+                  .append(csvCell(r.getCreatedAt())).append("\n");
+            }
+            return Result.success(sb.toString());
+        } catch (Exception e) {
+            log.error("导出用量记录失败", e);
+            return Result.error(ResultCode.SYSTEM_ERROR, "导出用量记录失败: " + e.getMessage());
+        }
     }
 
     // ==================== 私有方法 ====================
@@ -381,5 +421,15 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         public void setTotalCost(BigDecimal totalCost) {
             this.totalCost = totalCost;
         }
+    }
+    private String csvCell(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String s = value.toString();
+        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 }

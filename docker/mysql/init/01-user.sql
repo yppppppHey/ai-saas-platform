@@ -250,3 +250,17 @@ WHERE r.role_code = 'ROLE_ADMIN' AND p.permission_code IN (
 INSERT INTO `user_role_permission` (`role_id`, `permission_id`)
 SELECT r.id, p.id FROM user_role r, user_permission p 
 WHERE r.role_code = 'ROLE_SUPER_ADMIN';
+
+-- 第三方账号绑定
+CREATE TABLE IF NOT EXISTS `user_oauth_binding` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+  `platform` varchar(32) NOT NULL COMMENT '平台: wechat/qq/github/google',
+  `account_id` varchar(128) NOT NULL COMMENT '第三方账号ID(openid等)',
+  `nickname` varchar(128) DEFAULT NULL COMMENT '第三方昵称',
+  `bind_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '绑定时间',
+  `is_deleted` tinyint unsigned NOT NULL DEFAULT '0' COMMENT '是否删除: 0-否 1-是',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_platform` (`user_id`, `platform`),
+  KEY `idx_account` (`platform`, `account_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='第三方账号绑定表';
