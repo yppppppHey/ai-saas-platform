@@ -44,7 +44,7 @@ spring:
         max-wait: 5000ms
 
 rocketmq:
-  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9878}
+  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
   producer:
     group: task-producer-group
     send-message-timeout: 10000
