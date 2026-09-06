@@ -231,16 +231,18 @@ public class DeepSeekProvider extends AbstractAIProvider {
             // Parse usage
             JsonNode usageNode = root.path("usage");
             if (!usageNode.isMissingNode()) {
-                builder.promptTokens(usageNode.path("prompt_tokens").asInt());
-                builder.totalTokens(usageNode.path("total_tokens").asInt());
+                builder.usage(EmbeddingResponse.Usage.builder()
+                        .promptTokens(usageNode.path("prompt_tokens").asInt())
+                        .totalTokens(usageNode.path("total_tokens").asInt())
+                        .build());
             }
 
             // Parse data
             JsonNode dataNode = root.path("data");
             if (dataNode.isArray()) {
-                List<EmbeddingResponse.EmbeddingData> dataList = new ArrayList<>();
+                List<EmbeddingResponse.Embedding> dataList = new ArrayList<>();
                 for (JsonNode item : dataNode) {
-                    EmbeddingResponse.EmbeddingData.EmbeddingDataBuilder dataBuilder = EmbeddingResponse.EmbeddingData.builder()
+                    EmbeddingResponse.Embedding.EmbeddingBuilder dataBuilder = EmbeddingResponse.Embedding.builder()
                             .object(item.path("object").asText())
                             .index(item.path("index").asInt());
 
@@ -264,7 +266,9 @@ public class DeepSeekProvider extends AbstractAIProvider {
         } catch (Exception e) {
             log.error("解析DeepSeek Embedding响应失败: {}", responseBody, e);
             return EmbeddingResponse.builder()
-                    .error("Failed to parse embedding response: " + e.getMessage())
+                    .error(EmbeddingResponse.ErrorInfo.builder()
+                            .message("Failed to parse embedding response: " + e.getMessage())
+                            .build())
                     .build();
         }
     }
@@ -296,8 +300,4 @@ public class DeepSeekProvider extends AbstractAIProvider {
                 });
     }
 
-    @Override
-    public ModelPrice getModelPrice(String model) {
-        return modelPrices.get(model);
-    }
 }

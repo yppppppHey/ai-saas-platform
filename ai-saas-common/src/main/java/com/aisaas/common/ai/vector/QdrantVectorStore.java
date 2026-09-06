@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.*;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -151,7 +152,7 @@ public class QdrantVectorStore implements VectorStore {
                     .collect(Collectors.toList());
 
             // 构建payload
-            Map<String, io.qdrant.client.Value> payload = new HashMap<>();
+            Map<String, io.qdrant.client.grpc.JsonWithInt.Value> payload = new HashMap<>();
             if (metadata != null) {
                 metadata.forEach((key, value) -> {
                     payload.put(key, convertToValue(value));
@@ -160,7 +161,7 @@ public class QdrantVectorStore implements VectorStore {
 
             // 创建点
             Points.PointStruct point = Points.PointStruct.newBuilder()
-                    .setId(io.qdrant.client.PointIdFactory.id(id))
+                    .setId(toPointId(id))
                     .setVectors(io.qdrant.client.VectorsFactory.vectors(floatVector))
                     .putAllPayload(payload)
                     .build();
@@ -196,7 +197,7 @@ public class QdrantVectorStore implements VectorStore {
                         .collect(Collectors.toList());
 
                 // 构建payload
-                Map<String, io.qdrant.client.Value> payload = new HashMap<>();
+                Map<String, io.qdrant.client.grpc.JsonWithInt.Value> payload = new HashMap<>();
                 if (metadata != null) {
                     metadata.forEach((key, value) -> {
                         payload.put(key, convertToValue(value));
@@ -205,7 +206,7 @@ public class QdrantVectorStore implements VectorStore {
 
                 // 创建点
                 Points.PointStruct point = Points.PointStruct.newBuilder()
-                        .setId(io.qdrant.client.PointIdFactory.id(id))
+                        .setId(toPointId(id))
                         .setVectors(io.qdrant.client.VectorsFactory.vectors(floatVector))
                         .putAllPayload(payload)
                         .build();
@@ -249,18 +250,23 @@ public class QdrantVectorStore implements VectorStore {
                                     .setKeyword(convertToValue(value).getStringValue())
                                     .build())
                             .build();
-                    filterBuilder.addMust(condition);
+                    filterBuilder.addMust(Points.Condition.newBuilder().setField(condition).build());
                 });
             }
 
-            // 执行搜索
-            List<Points.ScoredPoint> results = client.searchAsync(
-                            io.qdrant.client.QueryFactory.nearest(floatVector))
+            // 执行搜索（qdrant 1.11 使用 Query API）
+            Points.QueryPoints.Builder queryBuilder = Points.QueryPoints.newBuilder()
                     .setCollectionName(collectionName)
-                    .setLimit(topK)
-                    .setFilter(filterBuilder.build())
-                    .setScoreThreshold((float) minScore)
-                    .execute()
+                    .setQuery(io.qdrant.client.QueryFactory.nearest(floatVector))
+                    .setLimit(topK);
+            if (minScore > 0) {
+                queryBuilder.setScoreThreshold((float) minScore);
+            }
+            if (filterBuilder.getMustCount() > 0) {
+                queryBuilder.setFilter(filterBuilder.build());
+            }
+
+            List<Points.ScoredPoint> results = client.queryAsync(queryBuilder.build())
                     .get(timeoutSeconds, TimeUnit.SECONDS);
 
             // 转换为搜索结果
@@ -277,7 +283,7 @@ public class QdrantVectorStore implements VectorStore {
     @Override
     public boolean deleteById(String collectionName, String id) {
         try {
-            client.deleteAsync(collectionName, io.qdrant.client.PointIdFactory.id(id))
+            client.deleteAsync(collectionName, List.of(toPointId(id)))
                     .get(timeoutSeconds, TimeUnit.SECONDS);
             return true;
         } catch (Exception e) {
@@ -300,11 +306,9 @@ public class QdrantVectorStore implements VectorStore {
     @Override
     public VectorRecord getById(String collectionName, String id) {
         try {
-            List<Points.RetrievedPoint> points = client.retrieveAsync(collectionName)
-                    .setIds(io.qdrant.client.PointIdFactory.id(id))
-                    .setWithPayload(true)
-                    .setWithVectors(true)
-                    .execute()
+            List<Points.RetrievedPoint> points = client.retrieveAsync(
+                            collectionName, toPointId(id), true, true,
+                            Points.ReadConsistency.getDefaultInstance())
                     .get(timeoutSeconds, TimeUnit.SECONDS);
 
             if (points.isEmpty()) {
@@ -343,7 +347,7 @@ public class QdrantVectorStore implements VectorStore {
     public boolean clear(String collectionName) {
         try {
             // 删除所有点
-            client.deleteAsync(collectionName, new io.qdrant.client.grpc.Points.Filter())
+            client.deleteAsync(collectionName, Points.Filter.getDefaultInstance())
                     .get(timeoutSeconds, TimeUnit.SECONDS);
             return true;
         } catch (Exception e) {
@@ -355,12 +359,13 @@ public class QdrantVectorStore implements VectorStore {
     @Override
     public boolean updateMetadata(String collectionName, String id, Map<String, Object> metadata) {
         try {
-            Map<String, io.qdrant.client.Value> payload = new HashMap<>();
+            Map<String, io.qdrant.client.grpc.JsonWithInt.Value> payload = new HashMap<>();
             metadata.forEach((key, value) -> {
                 payload.put(key, convertToValue(value));
             });
 
-            client.setPayloadAsync(collectionName, payload, io.qdrant.client.PointIdFactory.id(id))
+            client.setPayloadAsync(collectionName, payload, toPointId(id),
+                            Boolean.FALSE, Points.WriteOrderingType.Weak, null)
                     .get(timeoutSeconds, TimeUnit.SECONDS);
             return true;
         } catch (Exception e) {
@@ -388,45 +393,60 @@ public class QdrantVectorStore implements VectorStore {
         }
     }
 
-    private io.qdrant.client.Value convertToValue(Object value) {
+    /**
+     * 字符串 ID 转换为 Qdrant 点 ID：
+     * 合法 UUID 直接使用，否则做确定性 UUID 映射（Qdrant 仅支持 num/uuid 两种 ID）
+     */
+    private static Points.PointId toPointId(String id) {
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            uuid = UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8));
+        }
+        return io.qdrant.client.PointIdFactory.id(uuid);
+    }
+
+    private io.qdrant.client.grpc.JsonWithInt.Value convertToValue(Object value) {
+        io.qdrant.client.grpc.JsonWithInt.Value.Builder builder = io.qdrant.client.grpc.JsonWithInt.Value.newBuilder();
         if (value == null) {
-            return io.qdrant.client.Value.nullValue();
+            return builder.setNullValue(io.qdrant.client.grpc.JsonWithInt.NullValue.NULL_VALUE).build();
         }
         if (value instanceof String) {
-            return io.qdrant.client.Value.stringValue((String) value);
+            return builder.setStringValue((String) value).build();
         }
         if (value instanceof Integer) {
-            return io.qdrant.client.Value.integerValue((Integer) value);
+            return builder.setIntegerValue(((Integer) value).longValue()).build();
         }
         if (value instanceof Long) {
-            return io.qdrant.client.Value.integerValue((Long) value);
+            return builder.setIntegerValue((Long) value).build();
         }
         if (value instanceof Double) {
-            return io.qdrant.client.Value.doubleValue((Double) value);
+            return builder.setDoubleValue((Double) value).build();
         }
         if (value instanceof Float) {
-            return io.qdrant.client.Value.doubleValue((Float) value);
+            return builder.setDoubleValue(((Float) value).doubleValue()).build();
         }
         if (value instanceof Boolean) {
-            return io.qdrant.client.Value.boolValue((Boolean) value);
+            return builder.setBoolValue((Boolean) value).build();
         }
         if (value instanceof List) {
-            io.qdrant.client.Value.ListValue.Builder listBuilder = io.qdrant.client.Value.ListValue.newBuilder();
+            io.qdrant.client.grpc.JsonWithInt.ListValue.Builder listBuilder = io.qdrant.client.grpc.JsonWithInt.ListValue.newBuilder();
             for (Object item : (List<?>) value) {
                 listBuilder.addValues(convertToValue(item));
             }
-            return io.qdrant.client.Value.listValue(listBuilder.build());
+            return builder.setListValue(listBuilder.build()).build();
         }
         if (value instanceof Map) {
-            io.qdrant.client.Value.StructValue.Builder structBuilder = io.qdrant.client.Value.StructValue.newBuilder();
+            io.qdrant.client.grpc.JsonWithInt.Struct.Builder structBuilder = io.qdrant.client.grpc.JsonWithInt.Struct.newBuilder();
             ((Map<?, ?>) value).forEach((k, v) -> {
                 if (k instanceof String) {
                     structBuilder.putFields((String) k, convertToValue(v));
                 }
             });
-            return io.qdrant.client.Value.structValue(structBuilder.build());
+            return builder.setStructValue(structBuilder.build()).build();
         }
-        return io.qdrant.client.Value.stringValue(value.toString());
+        return builder.setStringValue(value.toString()).build();
     }
 
     // 内部结果类
@@ -474,7 +494,7 @@ public class QdrantVectorStore implements VectorStore {
 
         @Override
         public Map<String, Object> getMetadata() {
-            return Collections.unmodifiableMap(metadata);
+            return java.util.Collections.unmodifiableMap(metadata);
         }
     }
 
@@ -498,7 +518,7 @@ public class QdrantVectorStore implements VectorStore {
         return builder.build();
     }
 
-    private static Object convertFromValue(io.qdrant.client.Value value) {
+    private static Object convertFromValue(io.qdrant.client.grpc.JsonWithInt.Value value) {
         if (value == null || value.hasNullValue()) {
             return null;
         }

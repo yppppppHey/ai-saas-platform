@@ -1,7 +1,7 @@
 package com.aisaas.rag.service.impl;
 
 import com.aisaas.common.result.Result;
-import com.aisaas.common.result.ResultCode;
+import com.aisaas.common.constant.ResultCode;
 import com.aisaas.rag.constant.DocProcessStatusEnum;
 import com.aisaas.rag.dto.doc.*;
 import com.aisaas.rag.entity.RagDocument;

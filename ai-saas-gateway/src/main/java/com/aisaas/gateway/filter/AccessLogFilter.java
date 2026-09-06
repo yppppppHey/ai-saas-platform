@@ -57,7 +57,7 @@ public class AccessLogFilter implements GlobalFilter, Ordered {
 
         // 获取请求信息
         ServerHttpRequest request = exchange.getRequest();
-        String method = request.getMethodValue();
+        String method = request.getMethod().name();
         String path = request.getPath().value();
         String clientIp = getClientIp(request);
         String userAgent = request.getHeaders().getFirst(HttpHeaders.USER_AGENT);
@@ -168,12 +168,11 @@ public class AccessLogFilter implements GlobalFilter, Ordered {
         exchange.getAttributes().put("access_logged", true);
         
         String traceId = exchange.getAttribute(TRACE_ID_KEY);
-        String method = request.getMethodValue();
+        String method = request.getMethod().name();
         String path = request.getPath().value();
         String query = request.getURI().getQuery();
         String clientIp = getClientIp(request);
-        org.springframework.http.HttpStatus status = response.getStatusCode();
-        int statusCode = status != null ? status.value() : 0;
+        int statusCode = response.getStatusCode().value();
         
         // 获取路由信息
         org.springframework.cloud.gateway.route.Route route = exchange.getAttribute(org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);

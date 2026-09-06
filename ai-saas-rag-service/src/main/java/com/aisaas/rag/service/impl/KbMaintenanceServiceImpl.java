@@ -1,7 +1,7 @@
 package com.aisaas.rag.service.impl;
 
 import com.aisaas.common.result.Result;
-import com.aisaas.common.result.ResultCode;
+import com.aisaas.common.constant.ResultCode;
 import com.aisaas.rag.constant.KbStatusEnum;
 import com.aisaas.rag.dto.maintenance.*;
 import com.aisaas.rag.entity.RagKnowledgeBase;

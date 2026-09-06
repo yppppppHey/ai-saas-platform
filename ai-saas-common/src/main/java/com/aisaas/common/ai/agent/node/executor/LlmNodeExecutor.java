@@ -79,7 +79,7 @@ public class LlmNodeExecutor implements NodeExecutor {
 
             if (!response.isSuccess()) {
                 return NodeExecutionResult.failure(
-                        "LLM call failed: " + (response.getErrorMessage() != null ? response.getErrorMessage() : "Unknown error"));
+                        "LLM call failed: " + (response.getError() != null ? response.getError().getMessage() : "Unknown error"));
             }
 
             // 构建输出

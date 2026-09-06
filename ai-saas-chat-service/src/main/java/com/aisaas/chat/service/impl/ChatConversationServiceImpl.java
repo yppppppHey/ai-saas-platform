@@ -211,21 +211,21 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
         LambdaQueryWrapper<ChatConversation> totalWrapper = new LambdaQueryWrapper<>();
         totalWrapper.eq(ChatConversation::getUserId, userId)
                 .eq(ChatConversation::getIsDeleted, 0);
-        stats.setTotalConversations((int) conversationMapper.selectCount(totalWrapper));
+        stats.setTotalConversations(conversationMapper.selectCount(totalWrapper).intValue());
 
         // 置顶会话数
         LambdaQueryWrapper<ChatConversation> pinnedWrapper = new LambdaQueryWrapper<>();
         pinnedWrapper.eq(ChatConversation::getUserId, userId)
                 .eq(ChatConversation::getIsPinned, 1)
                 .eq(ChatConversation::getIsDeleted, 0);
-        stats.setPinnedConversations((int) conversationMapper.selectCount(pinnedWrapper));
+        stats.setPinnedConversations(conversationMapper.selectCount(pinnedWrapper).intValue());
 
         // 归档会话数
         LambdaQueryWrapper<ChatConversation> archivedWrapper = new LambdaQueryWrapper<>();
         archivedWrapper.eq(ChatConversation::getUserId, userId)
                 .eq(ChatConversation::getIsArchived, 1)
                 .eq(ChatConversation::getIsDeleted, 0);
-        stats.setArchivedConversations((int) conversationMapper.selectCount(archivedWrapper));
+        stats.setArchivedConversations(conversationMapper.selectCount(archivedWrapper).intValue());
 
         // 总消息数和Token使用量需要额外查询
         stats.setTotalMessages(messageMapper.countByUserId(userId));

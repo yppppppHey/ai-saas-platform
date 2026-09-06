@@ -140,7 +140,7 @@ public class RagBizService {
                     .collect(Collectors.toList());
 
             return RagQueryResult.builder()
-                    .success(ragResponse.isSuccess())
+                    .success(ragResponse.getSuccess())
                     .answer(ragResponse.getAnswer())
                     .retrievals(retrievals)
                     .latencyMs((int)(endTime - startTime))

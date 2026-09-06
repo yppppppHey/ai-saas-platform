@@ -71,6 +71,13 @@
             <artifactId>langchain4j-spring-boot-starter</artifactId>
         </dependency>
 
+        <!-- LangChain4j OpenAI 集成 -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>0.31.0</version>
+        </dependency>
+
         <!-- LangChain4j Qdrant -->
         <dependency>
             <groupId>dev.langchain4j</groupId>

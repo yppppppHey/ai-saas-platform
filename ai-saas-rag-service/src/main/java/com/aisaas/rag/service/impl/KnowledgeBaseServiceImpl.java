@@ -1,7 +1,7 @@
 package com.aisaas.rag.service.impl;
 
 import com.aisaas.common.result.Result;
-import com.aisaas.common.result.ResultCode;
+import com.aisaas.common.constant.ResultCode;
 import com.aisaas.rag.constant.KbAccessLevelEnum;
 import com.aisaas.rag.constant.KbStatusEnum;
 import com.aisaas.rag.dto.kb.*;
@@ -158,7 +158,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             return Result.error(ResultCode.FORBIDDEN, "无权操作该知识库");
         }
         if (!KbStatusEnum.canBuildIndex(kb.getStatus())) {
-            return Result.error(ResultCode.BIZ_ERROR, "当前状态不允许重建索引");
+            return Result.error(ResultCode.BUSINESS_ERROR, "当前状态不允许重建索引");
         }
 
         kb.setStatus(KbStatusEnum.BUILDING.getCode());

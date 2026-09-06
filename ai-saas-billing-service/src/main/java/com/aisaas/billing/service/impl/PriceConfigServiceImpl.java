@@ -5,7 +5,7 @@ import com.aisaas.billing.entity.PriceConfig;
 import com.aisaas.billing.mapper.PriceConfigMapper;
 import com.aisaas.billing.service.PriceConfigService;
 import com.aisaas.common.result.Result;
-import com.aisaas.common.result.ResultCode;
+import com.aisaas.common.constant.ResultCode;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;

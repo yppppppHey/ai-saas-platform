@@ -1,1 +1,22 @@
 target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IDE ###
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+### 日志 ###
+*.log
+logs/
+
+### 系统 ###
+.DS_Store
+Thumbs.db

@@ -252,7 +252,9 @@ public class ReportTaskProcessor extends AbstractTaskProcessor {
                     4. **持续改进**：定期回顾分析结果，不断优化业务流程。
                     """;
             }
-            default -> return "该部分内容详见详细数据附件。";
+            default -> {
+                return "该部分内容详见详细数据附件。";
+            }
         }
     }
 

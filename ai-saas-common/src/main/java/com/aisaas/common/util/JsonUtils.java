@@ -61,6 +61,13 @@ public class JsonUtils {
     /**
      * 将JSON字符串转换为对象
      */
+    /**
+     * 解析 JSON 为指定类型（兼容 fastjson 风格命名）
+     */
+    public static <T> T parseObject(String json, Class<T> clazz) {
+        return fromJson(json, clazz);
+    }
+
     public static <T> T fromJson(String json, Class<T> clazz) {
         if (json == null || json.isEmpty()) {
             return null;

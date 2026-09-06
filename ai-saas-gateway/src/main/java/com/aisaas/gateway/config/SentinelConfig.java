@@ -1,5 +1,13 @@
 package com.aisaas.gateway.config;
 
+import com.alibaba.csp.sentinel.slots.block.RuleConstant;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
+import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.CircuitBreakerStrategy;
+import com.alibaba.csp.sentinel.slots.block.flow.param.ParamFlowException;
+import com.alibaba.csp.sentinel.slots.system.SystemBlockException;
+import org.springframework.http.codec.HttpMessageWriter;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import com.alibaba.csp.sentinel.adapter.gateway.sc.SentinelGatewayFilter;
 import com.alibaba.csp.sentinel.adapter.gateway.sc.exception.SentinelGatewayBlockExceptionHandler;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
@@ -11,6 +19,7 @@ import com.alibaba.csp.sentinel.slots.block.flow.param.ParamFlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.param.ParamFlowRuleManager;
 import com.alibaba.csp.sentinel.slots.system.SystemRule;
 import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
+import org.springframework.beans.factory.ObjectProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.context.annotation.Bean;
@@ -168,9 +177,9 @@ public class SentinelConfig {
         // 对话服务熔断规则（慢调用比例）
         DegradeRule chatSlowCallRule = new DegradeRule();
         chatSlowCallRule.setResource("ai-saas-chat-service");
-        chatSlowCallRule.setGrade(CircuitBreakerStrategy.SLOW_REQUEST_RATIO);
-        chatSlowCallRule.setCount(0.5); // 慢调用比例阈值50%
-        chatSlowCallRule.setSlowRatioThreshold(500); // 慢调用阈值500ms
+        chatSlowCallRule.setGrade(RuleConstant.DEGRADE_GRADE_RT);
+        chatSlowCallRule.setCount(500); // 慢调用阈值500ms
+        chatSlowCallRule.setSlowRatioThreshold(0.5); // 慢调用比例阈值50%
         chatSlowCallRule.setTimeWindow(30); // 熔断时长30秒
         chatSlowCallRule.setMinRequestAmount(10); // 最小请求数
         chatSlowCallRule.setStatIntervalMs(1000); // 统计时长1秒
@@ -179,7 +188,7 @@ public class SentinelConfig {
         // 对话服务熔断规则（异常比例）
         DegradeRule chatErrorRule = new DegradeRule();
         chatErrorRule.setResource("ai-saas-chat-service");
-        chatErrorRule.setGrade(CircuitBreakerStrategy.ERROR_RATIO);
+        chatErrorRule.setGrade(RuleConstant.DEGRADE_GRADE_EXCEPTION_RATIO);
         chatErrorRule.setCount(0.5); // 异常比例阈值50%
         chatErrorRule.setTimeWindow(30);
         chatErrorRule.setMinRequestAmount(10);
@@ -189,7 +198,7 @@ public class SentinelConfig {
         // 用户服务熔断规则
         DegradeRule userServiceRule = new DegradeRule();
         userServiceRule.setResource("ai-saas-user-service");
-        userServiceRule.setGrade(CircuitBreakerStrategy.ERROR_RATIO);
+        userServiceRule.setGrade(RuleConstant.DEGRADE_GRADE_EXCEPTION_RATIO);
         userServiceRule.setCount(0.7);
         userServiceRule.setTimeWindow(20);
         userServiceRule.setMinRequestAmount(5);
@@ -198,9 +207,9 @@ public class SentinelConfig {
         // 任务服务熔断规则
         DegradeRule taskServiceRule = new DegradeRule();
         taskServiceRule.setResource("ai-saas-task-service");
-        taskServiceRule.setGrade(CircuitBreakerStrategy.SLOW_REQUEST_RATIO);
-        taskServiceRule.setCount(0.6);
-        taskServiceRule.setSlowRatioThreshold(3000); // 任务服务容忍3秒慢调用
+        taskServiceRule.setGrade(RuleConstant.DEGRADE_GRADE_RT);
+        taskServiceRule.setCount(3000); // 任务服务容忍3秒慢调用
+        taskServiceRule.setSlowRatioThreshold(0.6);
         taskServiceRule.setTimeWindow(60);
         taskServiceRule.setMinRequestAmount(5);
         rules.add(taskServiceRule);

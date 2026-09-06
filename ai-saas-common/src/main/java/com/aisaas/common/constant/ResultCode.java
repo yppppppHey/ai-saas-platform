@@ -17,7 +17,9 @@ public enum ResultCode {
     CONFLICT(409, "资源冲突"),
     TOO_MANY_REQUESTS(429, "请求过于频繁，请稍后再试"),
     INTERNAL_ERROR(500, "服务器内部错误"),
+    SYSTEM_ERROR(500, "系统错误"),
     SERVICE_UNAVAILABLE(503, "服务暂不可用"),
+    NOT_IMPLEMENTED(501, "功能未实现"),
 
     BUSINESS_ERROR(1000, "业务处理错误"),
     QUOTA_EXCEEDED(1001, "配额不足"),

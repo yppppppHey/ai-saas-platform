@@ -2,7 +2,7 @@ package com.aisaas.task.service.impl;
 
 import com.aisaas.common.exception.BizException;
 import com.aisaas.common.result.Result;
-import com.aisaas.common.result.ResultCode;
+import com.aisaas.common.constant.ResultCode;
 import com.aisaas.common.util.JsonUtils;
 import com.aisaas.task.constant.TaskStatusEnum;
 import com.aisaas.task.constant.TaskTypeEnum;
@@ -124,7 +124,7 @@ public class TaskServiceImpl implements TaskService {
         }
 
         if (!TaskStatusEnum.canCancel(task.getStatus())) {
-            return Result.error(ResultCode.BIZ_ERROR, "当前状态不可取消: " + TaskStatusEnum.fromCode(task.getStatus()).getDesc());
+            return Result.error(ResultCode.BUSINESS_ERROR, "当前状态不可取消: " + TaskStatusEnum.fromCode(task.getStatus()).getDesc());
         }
 
         task.setStatus(TaskStatusEnum.CANCELLED.getCode());
@@ -149,11 +149,11 @@ public class TaskServiceImpl implements TaskService {
         }
 
         if (!TaskStatusEnum.canRetry(task.getStatus())) {
-            return Result.error(ResultCode.BIZ_ERROR, "当前状态不支持重试: " + TaskStatusEnum.fromCode(task.getStatus()).getDesc());
+            return Result.error(ResultCode.BUSINESS_ERROR, "当前状态不支持重试: " + TaskStatusEnum.fromCode(task.getStatus()).getDesc());
         }
 
         if (task.getRetryCount() >= task.getMaxRetry()) {
-            return Result.error(ResultCode.BIZ_ERROR, "已达到最大重试次数");
+            return Result.error(ResultCode.BUSINESS_ERROR, "已达到最大重试次数");
         }
 
         task.setStatus(TaskStatusEnum.PENDING.getCode());

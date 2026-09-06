@@ -32,6 +32,13 @@ public class RedisUtils {
     }
 
     /**
+     * 删除缓存
+     */
+    public boolean delete(String key) {
+        return key != null && Boolean.TRUE.equals(redisTemplate.delete(key));
+    }
+
+    /**
      * 普通缓存放入
      */
     public boolean set(String key, Object value) {

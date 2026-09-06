@@ -195,11 +195,11 @@ public class RetrievalServiceImpl implements RetrievalService {
             AIProvider provider = providerFactory.getProvider("openai");
             EmbeddingRequest req = EmbeddingRequest.builder()
                 .model(model != null ? model : "text-embedding-3-small")
-                .input(Collections.singletonList(query))
+                .inputs(Collections.singletonList(query))
                 .build();
             EmbeddingResponse resp = provider.embed(req);
-            if (resp != null && resp.getEmbeddings() != null && !resp.getEmbeddings().isEmpty()) {
-                return resp.getEmbeddings().get(0).getEmbedding();
+            if (resp != null && resp.getData() != null && !resp.getData().isEmpty()) {
+                return resp.getData().get(0).getEmbedding();
             }
             return null;
         } catch (Exception e) {

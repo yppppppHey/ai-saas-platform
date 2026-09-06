@@ -4,6 +4,10 @@ import com.aisaas.common.ai.dto.ChatRequest;
 import com.aisaas.common.ai.dto.ChatResponse;
 import com.aisaas.common.ai.dto.EmbeddingRequest;
 import com.aisaas.common.ai.dto.EmbeddingResponse;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import reactor.core.publisher.Flux;
 
 /**

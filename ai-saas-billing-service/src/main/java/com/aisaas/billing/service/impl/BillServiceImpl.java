@@ -5,7 +5,7 @@ import com.aisaas.billing.entity.Bill;
 import com.aisaas.billing.mapper.BillMapper;
 import com.aisaas.billing.service.BillService;
 import com.aisaas.common.result.Result;
-import com.aisaas.common.result.ResultCode;
+import com.aisaas.common.constant.ResultCode;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;

@@ -39,6 +39,7 @@ public class IpBlacklistFilter implements GlobalFilter, Ordered {
     private static final String IP_BLACKLIST_REDIS_KEY = "gateway:ip:blacklist";
     private static final String IP_WHITELIST_REDIS_KEY = "gateway:ip:whitelist";
     private static final String IP_BLOCK_PREFIX = "gateway:ip:block:";
+    private static final String TRACE_ID_KEY = "traceId";
     
     // 本地缓存
     private final Set<String> localBlacklist = ConcurrentHashMap.newKeySet();
@@ -158,6 +159,23 @@ public class IpBlacklistFilter implements GlobalFilter, Ordered {
     /**
      * 检查IP是否被临时封禁
      */
+    private String getClientIp(ServerHttpRequest request) {
+        String ip = request.getHeaders().getFirst("X-Forwarded-For");
+        if (ip == null || ip.isEmpty()) {
+            ip = request.getHeaders().getFirst("X-Real-IP");
+        }
+        if (ip == null || ip.isEmpty()) {
+            java.net.InetSocketAddress remoteAddress = request.getRemoteAddress();
+            if (remoteAddress != null && remoteAddress.getAddress() != null) {
+                ip = remoteAddress.getAddress().getHostAddress();
+            }
+        }
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return (ip == null || ip.isEmpty()) ? "unknown" : ip;
+    }
+
     private boolean isIpTempBlocked(String ip) {
         try {
             String blockKey = IP_BLOCK_PREFIX + ip;

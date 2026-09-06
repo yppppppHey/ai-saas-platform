@@ -85,7 +85,7 @@ public class QuotaServiceImpl extends ServiceImpl<UserQuotaMapper, UserQuota> im
         if (quota == null) {
             return false;
         }
-        return !quota.isExceeded() && quota.getDailyRemaining() >= requiredAmount;
+        return !quota.isExceeded() && (quota.getDailyLimit() - quota.getDailyUsed()) >= requiredAmount;
     }
 
     @Override
@@ -104,7 +104,7 @@ public class QuotaServiceImpl extends ServiceImpl<UserQuotaMapper, UserQuota> im
             return Result.error(ResultCode.QUOTA_EXCEEDED, "配额已超限");
         }
 
-        if (quota.getDailyRemaining() < amount) {
+        if ((quota.getDailyLimit() - quota.getDailyUsed()) < amount) {
             return Result.error(ResultCode.QUOTA_EXCEEDED, "剩余配额不足");
         }
 
@@ -199,8 +199,8 @@ public class QuotaServiceImpl extends ServiceImpl<UserQuotaMapper, UserQuota> im
         dto.setDailyUsed(quota.getDailyUsed());
         dto.setMonthlyUsed(quota.getMonthlyUsed());
         dto.setTotalUsed(quota.getTotalUsed());
-        dto.setDailyRemaining(quota.getDailyRemaining());
-        dto.setMonthlyRemaining(quota.getMonthlyRemaining());
+        dto.setDailyRemaining(quota.getDailyLimit() - quota.getDailyUsed());
+        dto.setMonthlyRemaining(quota.getMonthlyLimit() - quota.getMonthlyUsed());
         dto.setExceeded(quota.isExceeded());
         return dto;
     }
