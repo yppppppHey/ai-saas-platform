@@ -1,27 +1,35 @@
 package com.aisaas.common.config;
 
+import com.aisaas.common.mq.InMemoryTransactionStateStore;
+import com.aisaas.common.mq.TransactionState;
+import com.aisaas.common.mq.TransactionStateStore;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
 import org.apache.rocketmq.client.producer.TransactionListener;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * RocketMQ 事务消息配置
  * 实现事务消息支持配置
+ *
+ * <p>本地事务状态通过 {@link TransactionStateStore} 持久化（生产为 Redis 实现，
+ * Redis 不可用时降级内存实现）：保证服务重启 / 多实例部署后，broker 对未决半消息的
+ * 回查仍能依据历史状态正确应答，避免"本地事务已成功、消息却被超时回滚"的不一致。</p>
  */
 @Slf4j
 @Configuration
 public class RocketMQTransactionConfig {
+
+    /** 单条事务回查次数上限：超过视为业务执行异常，建议回滚 */
+    private static final int MAX_CHECK_COUNT = 10;
 
     @Autowired
     private RocketMQTemplate rocketMQTemplate;
@@ -30,52 +38,23 @@ public class RocketMQTransactionConfig {
     @Autowired(required = false)
     private ApplicationEventPublisher eventPublisher;
 
-    // 事务状态记录（实际项目中应该使用Redis或数据库）
-    private static final Map<String, TransactionRecord> transactionRecords = new ConcurrentHashMap<>();
+    @Autowired
+    private ObjectProvider<TransactionStateStore> stateStoreProvider;
+
+    /** 事务状态存储：Redis 实现；无 Redis 环境（单测/极简部署）降级内存实现 */
+    private TransactionStateStore stateStore;
+
+    @PostConstruct
+    public void initStateStore() {
+        this.stateStore = stateStoreProvider.getIfAvailable(InMemoryTransactionStateStore::new);
+        log.info("Transaction state store resolved: {}", stateStore.getClass().getSimpleName());
+    }
 
     // 事务状态枚举
     public enum TransactionStatus {
         UNKNOWN,    // 未知状态
         COMMIT,     // 提交
         ROLLBACK    // 回滚
-    }
-
-    /**
-     * 事务记录
-     */
-    public static class TransactionRecord {
-        private final String transactionId;
-        private TransactionStatus status;
-        private final long createTime;
-        private long updateTime;
-        private int checkCount;
-        private String payload;
-
-        public TransactionRecord(String transactionId, String payload) {
-            this.transactionId = transactionId;
-            this.payload = payload;
-            this.status = TransactionStatus.UNKNOWN;
-            this.createTime = System.currentTimeMillis();
-            this.updateTime = this.createTime;
-            this.checkCount = 0;
-        }
-
-        public void updateStatus(TransactionStatus status) {
-            this.status = status;
-            this.updateTime = System.currentTimeMillis();
-        }
-
-        public void incrementCheckCount() {
-            this.checkCount++;
-        }
-
-        // Getters
-        public String getTransactionId() { return transactionId; }
-        public TransactionStatus getStatus() { return status; }
-        public long getCreateTime() { return createTime; }
-        public long getUpdateTime() { return updateTime; }
-        public int getCheckCount() { return checkCount; }
-        public String getPayload() { return payload; }
     }
 
     /**
@@ -91,30 +70,33 @@ public class RocketMQTransactionConfig {
 
                 log.info("Executing local transaction: {}", transactionId);
 
-                try {
-                    // 记录事务
-                    TransactionRecord record = new TransactionRecord(transactionId, payload);
-                    transactionRecords.put(transactionId, record);
+                // 先落"未决"状态再执行业务：即使执行过程中宕机, 重启后 broker 回查
+                // 也能从持久化状态得知该事务曾进入本地执行阶段(UNKNOWN -> 持续回查)
+                TransactionState state = new TransactionState(
+                        transactionId, TransactionStatus.UNKNOWN.name(),
+                        System.currentTimeMillis(), System.currentTimeMillis(), 0, payload);
+                stateStore.save(state);
 
+                try {
                     // 执行本地业务逻辑
                     boolean success = executeLocalBusiness(transactionId, payload);
 
                     if (success) {
-                        record.updateStatus(TransactionStatus.COMMIT);
+                        state.setStatus(TransactionStatus.COMMIT.name());
+                        stateStore.save(state);
                         log.info("Local transaction committed: {}", transactionId);
                         return LocalTransactionState.COMMIT_MESSAGE;
                     } else {
-                        record.updateStatus(TransactionStatus.ROLLBACK);
+                        state.setStatus(TransactionStatus.ROLLBACK.name());
+                        stateStore.save(state);
                         log.warn("Local transaction rolled back: {}", transactionId);
                         return LocalTransactionState.ROLLBACK_MESSAGE;
                     }
 
                 } catch (Exception e) {
                     log.error("Local transaction failed: {}", transactionId, e);
-                    TransactionRecord record = transactionRecords.get(transactionId);
-                    if (record != null) {
-                        record.updateStatus(TransactionStatus.ROLLBACK);
-                    }
+                    state.setStatus(TransactionStatus.ROLLBACK.name());
+                    stateStore.save(state);
                     return LocalTransactionState.ROLLBACK_MESSAGE;
                 }
             }
@@ -122,31 +104,34 @@ public class RocketMQTransactionConfig {
             @Override
             public LocalTransactionState checkLocalTransaction(MessageExt msg) {
                 String transactionId = msg.getTransactionId();
-                TransactionRecord record = transactionRecords.get(transactionId);
+                TransactionState state = stateStore.find(transactionId);
 
-                if (record == null) {
+                if (state == null) {
+                    // 无记录(从未进入本地执行, 或状态已过 48h TTL): 判定回滚, 防止悬挂半消息
                     log.warn("Transaction record not found: {}", transactionId);
                     return LocalTransactionState.ROLLBACK_MESSAGE;
                 }
 
-                record.incrementCheckCount();
-                log.info("Checking local transaction: {}, status: {}, check count: {}",
-                        transactionId, record.getStatus(), record.getCheckCount());
+                // 回查计数(读-改-写; 单实例原子, 多实例极端并发下允许少量偏差,
+                // 仅用于"超过上限强制回滚"的保护, 不影响正确性)
+                state.setCheckCount(state.getCheckCount() + 1);
+                stateStore.save(state);
 
-                switch (record.getStatus()) {
-                    case COMMIT:
-                        return LocalTransactionState.COMMIT_MESSAGE;
-                    case ROLLBACK:
-                        return LocalTransactionState.ROLLBACK_MESSAGE;
-                    case UNKNOWN:
-                    default:
-                        // 如果检查次数过多，可能是业务执行出现问题，建议回滚
-                        if (record.getCheckCount() > 10) {
-                            log.warn("Too many checks for transaction: {}, rolling back", transactionId);
-                            return LocalTransactionState.ROLLBACK_MESSAGE;
-                        }
-                        return LocalTransactionState.UNKNOW;
+                log.info("Checking local transaction: {}, status: {}, check count: {}",
+                        transactionId, state.getStatus(), state.getCheckCount());
+
+                if (TransactionStatus.COMMIT.name().equals(state.getStatus())) {
+                    return LocalTransactionState.COMMIT_MESSAGE;
                 }
+                if (TransactionStatus.ROLLBACK.name().equals(state.getStatus())) {
+                    return LocalTransactionState.ROLLBACK_MESSAGE;
+                }
+                // UNKNOWN: 如果检查次数过多，可能是业务执行出现问题，建议回滚
+                if (state.getCheckCount() > MAX_CHECK_COUNT) {
+                    log.warn("Too many checks for transaction: {}, rolling back", transactionId);
+                    return LocalTransactionState.ROLLBACK_MESSAGE;
+                }
+                return LocalTransactionState.UNKNOW;
             }
         };
     }
@@ -216,30 +201,5 @@ public class RocketMQTransactionConfig {
             log.error("Failed to send transaction message", e);
             return false;
         }
-    }
-
-    /**
-     * 获取事务记录
-     *
-     * @param transactionId 事务ID
-     * @return 事务记录
-     */
-    public TransactionRecord getTransactionRecord(String transactionId) {
-        return transactionRecords.get(transactionId);
-    }
-
-    /**
-     * 清理已完成的事务记录
-     */
-    public void cleanupCompletedTransactions() {
-        long currentTime = System.currentTimeMillis();
-        transactionRecords.entrySet().removeIf(entry -> {
-            TransactionRecord record = entry.getValue();
-            // 清理已完成且超过24小时的记录
-            return (record.getStatus() == TransactionStatus.COMMIT ||
-                    record.getStatus() == TransactionStatus.ROLLBACK) &&
-                    (currentTime - record.getUpdateTime() > 24 * 60 * 60 * 1000);
-        });
-        log.info("Cleaned up completed transaction records, remaining: {}", transactionRecords.size());
     }
 }
