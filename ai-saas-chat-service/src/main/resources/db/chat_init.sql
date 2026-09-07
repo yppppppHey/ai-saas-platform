@@ -23,12 +23,9 @@ CREATE TABLE IF NOT EXISTS `chat_conversation` (
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除: 0-未删除 1-已删除',
     PRIMARY KEY (`id`),
-    KEY `idx_user_id` (`user_id`),
-    KEY `idx_is_pinned` (`is_pinned`),
-    KEY `idx_is_archived` (`is_archived`),
-    KEY `idx_last_message_at` (`last_message_at`),
-    KEY `idx_status` (`status`),
-    KEY `idx_is_deleted` (`is_deleted`)
+    -- 联合索引：覆盖会话列表分页(user_id + is_deleted 等值过滤，再按 is_pinned, last_message_at 排序)
+    -- 取代原先 6 个单列索引(含低基数的 is_deleted/status，会诱导 index_merge 并对热点分页造成 filesort)
+    KEY `idx_user_del_pinned_lm` (`user_id`, `is_deleted`, `is_pinned` DESC, `last_message_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话表';
 
 -- 创建消息表
