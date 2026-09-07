@@ -11,6 +11,7 @@ import com.aisaas.user.entity.UserSettings;
 import com.aisaas.user.mapper.UserOauthBindingMapper;
 import com.aisaas.user.mapper.UserSettingsMapper;
 
+import com.aisaas.user.cache.UserBloomFilter;
 import com.aisaas.user.service.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -50,6 +51,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     private final UserSettingsMapper userSettingsMapper;
     private final UserOauthBindingMapper userOauthBindingMapper;
     private final com.aisaas.common.util.RedisUtils redisUtils;
+    private final UserBloomFilter userBloomFilter;
 
     /** 头像存储目录（生产可替换为 OSS/MinIO） */
     @org.springframework.beans.factory.annotation.Value("${user.avatar.storage-path:./uploads/avatars}")
@@ -74,8 +76,14 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
      * unless=#result==null 防止缓存穿透(不缓存空值)。
      */
     @Override
-    @Cacheable(value = "user", key = "#id", sync = true, unless = "#result == null")
+    @Cacheable(value = "user", key = "#p0", sync = true)
     public UserAccount getById(Serializable id) {
+        // 布隆过滤器预筛: 判定"一定不存在"的 userId 直接返回, 拦截穿透请求打爆 DB(且不进缓存)
+        // 注: sync=true 不支持 unless 属性(Spring 限制), 空值不缓存改由布隆在回源前拦截
+        Long uid = id instanceof Number ? ((Number) id).longValue() : null;
+        if (uid != null && !userBloomFilter.mightContain(uid)) {
+            return null;
+        }
         return super.getById(id);
     }
 
@@ -98,6 +106,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
+    @CacheEvict(value = "user", key = "#p0")
     @Transactional(rollbackFor = Exception.class)
     public Result<UserInfoDTO> updateProfile(Long userId, UpdateProfileDTO updateDTO) {
         UserAccount user = getById(userId);
@@ -137,6 +146,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
+    @CacheEvict(value = "user", key = "#p0")
     public Result<String> uploadAvatar(Long userId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             return Result.error(ResultCode.BAD_REQUEST, "请选择要上传的头像文件");
@@ -177,6 +187,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
+    @CacheEvict(value = "user", key = "#p0")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> changePassword(Long userId, ChangePasswordDTO changePasswordDTO) {
         UserAccount user = getById(userId);
@@ -204,6 +215,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
+    @CacheEvict(value = "user", key = "#p0")
     public Result<Void> changePhone(Long userId, String newPhone, String verifyCode) {
         if (!org.springframework.util.StringUtils.hasText(newPhone)) {
             return Result.error(ResultCode.BAD_REQUEST, "手机号不能为空");
@@ -227,6 +239,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
+    @CacheEvict(value = "user", key = "#p0")
     public Result<Void> changeEmail(Long userId, String newEmail, String verifyCode) {
         if (!org.springframework.util.StringUtils.hasText(newEmail)) {
             return Result.error(ResultCode.BAD_REQUEST, "邮箱不能为空");
@@ -269,6 +282,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
+    @CacheEvict(value = "user", key = "#p0")
     public Result<Void> unbindThirdPartyAccount(Long userId, String platform) {
         if (!org.springframework.util.StringUtils.hasText(platform)) {
             return Result.error(ResultCode.BAD_REQUEST, "平台不能为空");
@@ -375,7 +389,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
-    @CacheEvict(value = "user", key = "#userId")
+    @CacheEvict(value = "user", key = "#p0")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> updateUserStatus(Long userId, Integer status) {
         UserAccount user = getById(userId);
@@ -392,7 +406,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
-    @CacheEvict(value = "user", key = "#userId")
+    @CacheEvict(value = "user", key = "#p0")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> deleteUser(Long userId) {
         UserAccount user = getById(userId);

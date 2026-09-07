@@ -131,8 +131,8 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
 
     @Override
     @Cacheable(value = "conversation",
-            key = "#userId+'_0_'+#keyword+'_'+#pageNum+'_'+#pageSize",
-            unless = "#result == null", sync = true)
+            key = "#p0+'_'+#p2+'_'+#p3",
+            condition = "#p1 == null")
     public Page<ConversationListDTO> listConversations(Long userId, String keyword, Integer pageNum, Integer pageSize) {
         Page<ChatConversation> page = new Page<>(pageNum, pageSize);
         page = conversationMapper.selectConversationPage(page, userId, keyword, 0);
@@ -142,8 +142,8 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
 
     @Override
     @Cacheable(value = "conversation",
-            key = "#userId+'_1_'+#keyword+'_'+#pageNum+'_'+#pageSize",
-            unless = "#result == null", sync = true)
+            key = "#p0+'_archived_'+#p2+'_'+#p3",
+            condition = "#p1 == null")
     public Page<ConversationListDTO> listArchivedConversations(Long userId, String keyword, Integer pageNum, Integer pageSize) {
         Page<ChatConversation> page = new Page<>(pageNum, pageSize);
         page = conversationMapper.selectConversationPage(page, userId, keyword, 1);
