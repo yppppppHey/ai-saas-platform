@@ -12,6 +12,7 @@ import com.aisaas.user.mapper.UserAccountMapper;
 import com.aisaas.user.mapper.UserLoginLogMapper;
 import com.aisaas.user.service.AuthService;
 import com.aisaas.user.service.QuotaService;
+import com.aisaas.user.service.UserService;
 import com.aisaas.user.service.RoleService;
 import com.aisaas.user.util.JwtUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -43,6 +44,7 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     private final BCryptPasswordEncoder passwordEncoder;
     private final RoleService roleService;
     private final QuotaService quotaService;
+    private final UserService userService;
     private final com.aisaas.user.messaging.VerifyCodeNotifier verifyCodeNotifier;
 
     @Override
@@ -182,7 +184,7 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
         }
 
         Long userId = jwtUtil.getUserIdFromToken(refreshToken);
-        UserAccount user = userAccountMapper.selectById(userId);
+        UserAccount user = userService.getById(userId);
         if (user == null || user.getIsDeleted() == 1) {
             return Result.error(ResultCode.NOT_FOUND, "用户不存在");
         }

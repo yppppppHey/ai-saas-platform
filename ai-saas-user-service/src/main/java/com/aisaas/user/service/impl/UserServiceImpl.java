@@ -20,10 +20,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +66,17 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
             return Result.error(ResultCode.NOT_FOUND, "用户不存在");
         }
         return Result.success(convertToUserInfoDTO(user));
+    }
+
+    /**
+     * 用户信息缓存：auth 路径(每次鉴权)与 getUserInfo 都走这里，命中率极高。
+     * sync=true 由 Spring 对同一个 key 加锁，防止缓存击穿(并发回源)；
+     * unless=#result==null 防止缓存穿透(不缓存空值)。
+     */
+    @Override
+    @Cacheable(value = "user", key = "#id", sync = true, unless = "#result == null")
+    public UserAccount getById(Serializable id) {
+        return super.getById(id);
     }
 
     @Override
@@ -361,6 +375,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
+    @CacheEvict(value = "user", key = "#userId")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> updateUserStatus(Long userId, Integer status) {
         UserAccount user = getById(userId);
@@ -377,6 +392,7 @@ public class UserServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     }
 
     @Override
+    @CacheEvict(value = "user", key = "#userId")
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> deleteUser(Long userId) {
         UserAccount user = getById(userId);

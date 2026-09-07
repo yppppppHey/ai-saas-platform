@@ -17,12 +17,17 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @Configuration
@@ -140,5 +145,34 @@ public class RedisConfig extends CachingConfigurerSupport {
 
         template.afterPropertiesSet();
         return template;
+    }
+
+    /**
+     * Spring Cache 抽象使用的 RedisCacheManager。
+     * 各业务模块用 @Cacheable / @CacheEvict 即可，无需各自配置。
+     * 不同缓存命名空间设置不同 TTL：
+     *  - user：用户信息，变更少，30 分钟
+     *  - quota：配额记录，强一致读路径(Feign 同步校验)，短 TTL 3 秒 + 扣减时主动失效
+     *  - conversation：会话列表分页，中频写，30 秒
+     */
+    @Bean
+    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(10))
+                .disableCachingNullValues()
+                .serializeKeysWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new GenericJackson2JsonRedisSerializer()));
+
+        Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
+        cacheConfigs.put("user", defaultConfig.entryTtl(Duration.ofMinutes(30)));
+        cacheConfigs.put("quota", defaultConfig.entryTtl(Duration.ofSeconds(3)));
+        cacheConfigs.put("conversation", defaultConfig.entryTtl(Duration.ofSeconds(30)));
+
+        return RedisCacheManager.builder(connectionFactory)
+                .cacheDefaults(defaultConfig)
+                .withInitialCacheConfigurations(cacheConfigs)
+                .build();
     }
 }
