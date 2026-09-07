@@ -7,6 +7,7 @@ import com.aisaas.chat.entity.ChatMessage;
 import com.aisaas.chat.mapper.ChatConversationMapper;
 import com.aisaas.chat.mapper.ChatMessageMapper;
 import com.aisaas.chat.service.AiChatService;
+import com.aisaas.chat.service.QuotaCheckService;
 import com.aisaas.common.ai.dto.ChatRequest;
 import com.aisaas.common.ai.dto.ChatResponse;
 import com.aisaas.common.ai.provider.AIProvider;
@@ -52,6 +53,9 @@ public class AiChatServiceImpl implements AiChatService {
     private final ChatConversationMapper conversationMapper;
     private final AIProviderFactory aiProviderFactory;
 
+    /** 同步配额校验（OpenFeign 调 billing，强一致读） */
+    private final QuotaCheckService quotaCheckService;
+
     // 存储正在进行的生成任务（用于停止生成）
     private final Map<Long, AtomicBoolean> generationTasks = new ConcurrentHashMap<>();
 
@@ -59,6 +63,9 @@ public class AiChatServiceImpl implements AiChatService {
     public SseEmitter streamChat(Long userId, AiChatRequestDTO request) {
         // 创建SSE发射器，设置超时时间为5分钟
         SseEmitter emitter = new SseEmitter(300000L);
+
+        // 同步校验配额：强一致读，不足直接拒绝（真正的扣减走 MQ 异步最终一致）
+        quotaCheckService.checkBeforeChat(userId);
 
         // 异步执行对话
         CompletableFuture.runAsync(() -> {
@@ -97,6 +104,9 @@ public class AiChatServiceImpl implements AiChatService {
 
     @Override
     public AiChatResponseDTO chat(Long userId, AiChatRequestDTO request) {
+        // 同步校验配额：强一致读，不足直接拒绝（真正的扣减走 MQ 异步最终一致）
+        quotaCheckService.checkBeforeChat(userId);
+
         // 获取会话信息
         ChatConversation conversation = getAndValidateConversation(userId, request.getConversationId());
 
