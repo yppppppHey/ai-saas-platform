@@ -13,6 +13,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,6 +37,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     private final ChatMessageMapper messageMapper;
 
     @Override
+    @CacheEvict(value = "conversation", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public ChatConversation createConversation(Long userId, ConversationCreateDTO dto) {
         ChatConversation conversation = new ChatConversation();
@@ -56,6 +59,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @CacheEvict(value = "conversation", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteConversation(Long userId, Long conversationId) {
         ChatConversation conversation = getConversationByIdAndUserId(conversationId, userId);
@@ -76,6 +80,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @CacheEvict(value = "conversation", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public ChatConversation updateConversation(Long userId, Long conversationId, ConversationUpdateDTO dto) {
         ChatConversation conversation = getConversationByIdAndUserId(conversationId, userId);
@@ -125,6 +130,9 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @Cacheable(value = "conversation",
+            key = "#userId+'_0_'+#keyword+'_'+#pageNum+'_'+#pageSize",
+            unless = "#result == null", sync = true)
     public Page<ConversationListDTO> listConversations(Long userId, String keyword, Integer pageNum, Integer pageSize) {
         Page<ChatConversation> page = new Page<>(pageNum, pageSize);
         page = conversationMapper.selectConversationPage(page, userId, keyword, 0);
@@ -133,6 +141,9 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @Cacheable(value = "conversation",
+            key = "#userId+'_1_'+#keyword+'_'+#pageNum+'_'+#pageSize",
+            unless = "#result == null", sync = true)
     public Page<ConversationListDTO> listArchivedConversations(Long userId, String keyword, Integer pageNum, Integer pageSize) {
         Page<ChatConversation> page = new Page<>(pageNum, pageSize);
         page = conversationMapper.selectConversationPage(page, userId, keyword, 1);
@@ -141,6 +152,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @CacheEvict(value = "conversation", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public boolean pinConversation(Long userId, Long conversationId) {
         ChatConversation conversation = getConversationByIdAndUserId(conversationId, userId);
@@ -154,6 +166,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @CacheEvict(value = "conversation", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public boolean unpinConversation(Long userId, Long conversationId) {
         ChatConversation conversation = getConversationByIdAndUserId(conversationId, userId);
@@ -167,6 +180,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @CacheEvict(value = "conversation", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public boolean archiveConversation(Long userId, Long conversationId) {
         ChatConversation conversation = getConversationByIdAndUserId(conversationId, userId);
@@ -185,6 +199,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @CacheEvict(value = "conversation", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public boolean unarchiveConversation(Long userId, Long conversationId) {
         ChatConversation conversation = getConversationByIdAndUserId(conversationId, userId);
@@ -234,6 +249,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
     }
 
     @Override
+    @CacheEvict(value = "conversation", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public boolean clearConversationMessages(Long userId, Long conversationId) {
         ChatConversation conversation = getConversationByIdAndUserId(conversationId, userId);

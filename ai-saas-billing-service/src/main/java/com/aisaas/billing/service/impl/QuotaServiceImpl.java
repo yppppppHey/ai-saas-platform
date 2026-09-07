@@ -20,6 +20,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -71,6 +73,7 @@ public class QuotaServiceImpl implements QuotaService {
     }
 
     @Override
+    @CacheEvict(value = "quota", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> updateQuotaConfig(QuotaConfigUpdateDTO dto) {
         try {
@@ -264,10 +267,19 @@ public class QuotaServiceImpl implements QuotaService {
 
     // ==================== 配额检查与扣减 ====================
 
+    /**
+     * 配额记录缓存：checkQuota 是 chat→billing 的 Feign 同步只读热点，每次对话前必打。
+     * sync=true 防击穿；TTL 3s 由 RedisCacheManager 控制；扣减(updateQuotaConfig/deductQuota)时主动失效。
+     */
+    @Cacheable(value = "quota", key = "#userId+'_'+#quotaType", unless = "#result == null", sync = true)
+    public QuotaRecord getQuotaRecord(Long userId, Integer quotaType) {
+        return quotaRecordMapper.selectByUserIdAndType(userId, quotaType);
+    }
+
     @Override
     public Result<QuotaCheckResultVO> checkQuota(Long userId, Integer quotaType, Long requiredAmount) {
         try {
-            QuotaRecord record = quotaRecordMapper.selectByUserIdAndType(userId, quotaType);
+            QuotaRecord record = getQuotaRecord(userId, quotaType);
             if (record == null) {
                 return Result.error(ResultCode.NOT_FOUND, "配额记录不存在");
             }
@@ -338,6 +350,7 @@ public class QuotaServiceImpl implements QuotaService {
     }
 
     @Override
+    @CacheEvict(value = "quota", key = "#userId+'_'+#quotaType")
     @Transactional(rollbackFor = Exception.class)
     public Result<QuotaDeductResultVO> deductQuota(Long userId, Integer quotaType, Long amount, String bizType, String bizId) {
         try {

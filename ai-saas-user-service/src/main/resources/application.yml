@@ -33,18 +33,14 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 30000
       connection-test-query: SELECT 1
-  redis:
-    host: localhost
-    port: ${REDIS_PORT:6379}
-    password: 
-    database: 0
-    timeout: 10s
-    jedis:
-      pool:
-        max-active: 100
-        max-idle: 50
-        min-idle: 10
-        max-wait: 1000ms
+  spring:
+    data:
+      redis:
+        host: localhost
+        port: ${REDIS_PORT:6379}
+        password: 
+        database: 0
+        timeout: 10s
 
 jwt:
   # 必须与 gateway 的 jwt.secret 保持同一来源(JWT_SECRET)，否则签发的 token 网关验签必失败

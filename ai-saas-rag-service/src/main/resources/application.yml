@@ -21,14 +21,16 @@ spring:
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
 
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    database: ${REDIS_DATABASE:0}
-    timeout: 3000
-    lettuce:
-      pool:
+  spring:
+    data:
+      redis:
+        host: ${REDIS_HOST:localhost}
+        port: ${REDIS_PORT:6379}
+        password: ${REDIS_PASSWORD:}
+        database: ${REDIS_DATABASE:0}
+        timeout: 3000
+        lettuce:
+          pool:
         max-active: 8
         max-idle: 8
         min-idle: 0
