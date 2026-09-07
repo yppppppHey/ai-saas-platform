@@ -56,6 +56,18 @@ spring:
         output:
           destination: chat-message-topic
           content-type: application/json
+    # Sentinel 服务层防护（网关层规则见 ai-saas-gateway SentinelConfig）
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:localhost:8858}
+      # 启动即与 dashboard 建立连接, 避免首次请求才初始化
+      eager: true
+
+# OpenFeign 调用纳入 Sentinel: 每个 Feign 方法自动注册为资源,
+# 可在 dashboard/规则中对其做熔断(配合 BillingQuotaClientFallbackFactory 的 fail-open 降级)
+feign:
+  sentinel:
+    enabled: true
 
 # AI Provider配置
 ai:

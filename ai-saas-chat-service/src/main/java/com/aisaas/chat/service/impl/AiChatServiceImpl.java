@@ -1,5 +1,6 @@
 package com.aisaas.chat.service.impl;
 
+import com.aisaas.chat.config.ChatSentinelBlockHandlers;
 import com.aisaas.chat.dto.ai.AiChatRequestDTO;
 import com.aisaas.chat.dto.ai.AiChatResponseDTO;
 import com.aisaas.chat.entity.ChatConversation;
@@ -13,6 +14,7 @@ import com.aisaas.common.ai.dto.ChatResponse;
 import com.aisaas.common.ai.provider.AIProvider;
 import com.aisaas.common.ai.provider.AIProviderFactory;
 import com.aisaas.common.exception.BizException;
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -103,6 +105,7 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     @Override
+    @SentinelResource(value = "aiChat", blockHandler = "chatBlocked", blockHandlerClass = ChatSentinelBlockHandlers.class)
     public AiChatResponseDTO chat(Long userId, AiChatRequestDTO request) {
         // 同步校验配额：强一致读，不足直接拒绝（真正的扣减走 MQ 异步最终一致）
         quotaCheckService.checkBeforeChat(userId);
