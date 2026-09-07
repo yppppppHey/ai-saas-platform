@@ -35,6 +35,19 @@ spring:
 
   # RocketMQ配置
   cloud:
+    # OpenFeign 配置：同步调用会阻塞主链路，超时必须短，宁可走降级也不能拖垮对话接口
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 2000
+            readTimeout: 3000
+            loggerLevel: basic
+          # 配额校验是发起对话前的强依赖读，超时给得更紧
+          ai-saas-billing-service:
+            connectTimeout: 1000
+            readTimeout: 2000
+            loggerLevel: basic
     stream:
       rocketmq:
         binder:

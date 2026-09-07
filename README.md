@@ -113,6 +113,7 @@ flowchart TB
 | 任务编排 | Processor Factory + Handler Chain | 提升任务类型扩展性与执行流程可维护性 |
 | 检索增强 | 文档解析 + 文本切片 + Embedding + Qdrant | 支撑企业知识库问答与语义检索场景 |
 | 平台治理 | Gateway + Nacos + Sentinel | 提供鉴权、限流、重试、熔断、配置集中化能力 |
+| 服务间调用 | 同步 `OpenFeign` + 异步 `RocketMQ` | 强一致读（配额校验）走同步，可异步的写（计费扣减）走 MQ + 幂等，职责分离 |
 | 成本可视化 | Token Usage 记录与统计 | 适配 AI 产品实际计费、配额和运营分析需求 |
 | 通用基础设施 | `Result`、`RedisKeys`、MQ/缓存工具 | 保持跨服务接口风格与基础能力一致性 |
 
@@ -127,6 +128,7 @@ flowchart TB
 | 数据访问 | MyBatis-Plus 3.5.6、MySQL 8 |
 | 缓存 | Redis 7、Redisson |
 | 消息队列 | RocketMQ Spring Boot Starter 2.3.0 |
+| 服务调用 | Spring Cloud OpenFeign 4.1.1（Nacos 服务发现 + LoadBalancer） |
 | AI 能力 | LangChain4j 0.31.0、OpenAI、DeepSeek |
 | 向量检索 | Qdrant |
 | 监控运维 | Spring Actuator、Micrometer、Prometheus |
