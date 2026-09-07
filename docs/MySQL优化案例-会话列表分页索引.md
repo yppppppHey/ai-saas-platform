@@ -98,6 +98,6 @@ KEY idx_user_del_pinned_lm (user_id, is_deleted, is_pinned DESC, last_message_at
 |---|---|
 | `ai-saas-chat-service/src/main/resources/db/chat_init.sql` | 6 单列索引 → `idx_user_del_pinned_lm (user_id, is_deleted, is_pinned DESC, last_message_at DESC)` |
 | `docker/mysql/init/02-chat.sql` | 同上 |
-| `sql/init.sql` | **未改**：该文件中的 `chat_conversation` 是陈旧/分叉的 schema（缺 `is_deleted`/`is_archived`/`last_message_preview` 列，与实际实体不一致），不属于运行中的服务，已单独记录待清理 |
+| `sql/init.sql` | **已删除**：该文件是孤儿且分叉的整库初始化脚本，其中 `chat_conversation` 列定义（如 `model_id`/`temperature`/`context_window`）与权威 `chat_init.sql`/`docker/mysql/init/02-chat.sql` 完全不一致，若误用会建出与实体对不上的旧表；运行服务统一以各模块的 `db/*_init.sql` + `docker/mysql/init/*` 为准，故直接删除该冗余文件 |
 
 > 复现脚本与原始输出见仓库 `E:/tmp_mysql_bench/08_real_query.sql` 与 `08_real_query.out`（本地临时实验目录，未提交）。

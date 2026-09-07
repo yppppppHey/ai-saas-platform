@@ -10,6 +10,7 @@ import com.aisaas.user.entity.UserAccount;
 import com.aisaas.user.entity.UserLoginLog;
 import com.aisaas.user.mapper.UserAccountMapper;
 import com.aisaas.user.mapper.UserLoginLogMapper;
+import com.aisaas.user.cache.UserBloomFilter;
 import com.aisaas.user.service.AuthService;
 import com.aisaas.user.service.QuotaService;
 import com.aisaas.user.service.UserService;
@@ -45,6 +46,7 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
     private final RoleService roleService;
     private final QuotaService quotaService;
     private final UserService userService;
+    private final UserBloomFilter userBloomFilter;
     private final com.aisaas.user.messaging.VerifyCodeNotifier verifyCodeNotifier;
 
     @Override
@@ -91,6 +93,9 @@ public class AuthServiceImpl extends ServiceImpl<UserAccountMapper, UserAccount>
         user.setUpdatedAt(LocalDateTime.now());
 
         userAccountMapper.insert(user);
+
+        // 新用户增量加入布隆过滤器, 避免被误判为"不存在"
+        userBloomFilter.add(user.getId());
 
         // 分配默认角色
         roleService.assignRole(user.getId(), 1L, null); // 1L 是普通用户角色

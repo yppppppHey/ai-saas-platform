@@ -406,7 +406,7 @@ public class AiChatServiceImpl implements AiChatService {
 
     private void doStreamChatFlux(Long userId, AiChatRequestDTO request, Sinks.Many<AiChatResponseDTO> sink) {
         // 复用doStreamChat的逻辑，但输出到sink
-        SseEmitter emitter = new SseEmitter();
+        SseEmitter emitter = new SseEmitter(300000L);
 
         // 包装emitter的事件发送到sink
         // ... 实际实现与doStreamChat类似

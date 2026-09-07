@@ -171,6 +171,8 @@
                         <source>${java.version}</source>
                         <target>${java.version}</target>
                         <encoding>${project.build.sourceEncoding}</encoding>
+                        <!-- 开启 -parameters: @Cacheable/@CacheEvict 等注解里的 #id/#userId 命名参数 SpEL 才能正确解析(否则 key 为 null) -->
+                        <parameters>true</parameters>
                     </configuration>
                 </plugin>
                 <!-- JUnit 5 需要 surefire >= 2.22.0，Maven 3.6.3 自带的 2.12.4 会静默跳过所有测试 -->

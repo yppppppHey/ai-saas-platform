@@ -271,7 +271,7 @@ public class QuotaServiceImpl implements QuotaService {
      * 配额记录缓存：checkQuota 是 chat→billing 的 Feign 同步只读热点，每次对话前必打。
      * sync=true 防击穿；TTL 3s 由 RedisCacheManager 控制；扣减(updateQuotaConfig/deductQuota)时主动失效。
      */
-    @Cacheable(value = "quota", key = "#userId+'_'+#quotaType", unless = "#result == null", sync = true)
+    @Cacheable(value = "quota", key = "#p0+'_'+#p1", unless = "#result == null")
     public QuotaRecord getQuotaRecord(Long userId, Integer quotaType) {
         return quotaRecordMapper.selectByUserIdAndType(userId, quotaType);
     }
@@ -350,7 +350,7 @@ public class QuotaServiceImpl implements QuotaService {
     }
 
     @Override
-    @CacheEvict(value = "quota", key = "#userId+'_'+#quotaType")
+    @CacheEvict(value = "quota", key = "#p0+'_'+#p1")
     @Transactional(rollbackFor = Exception.class)
     public Result<QuotaDeductResultVO> deductQuota(Long userId, Integer quotaType, Long amount, String bizType, String bizId) {
         try {
