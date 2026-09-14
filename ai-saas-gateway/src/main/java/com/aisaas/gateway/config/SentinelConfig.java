@@ -70,6 +70,7 @@ public class SentinelConfig {
         return new SentinelGatewayBlockExceptionHandler(viewResolvers, serverCodecConfigurer) {
             @Override
             public Mono<Void> handle(ServerWebExchange exchange, Throwable ex) {
+                log.error("[Sentinel-handler] 拦截到异常: {}", ex.getMessage(), ex);
                 if (exchange.getResponse().isCommitted()) {
                     return Mono.error(ex);
                 }

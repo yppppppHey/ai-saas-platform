@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  */
 @Slf4j
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class CommonGlobalExceptionHandler {
 
     @ExceptionHandler(BizException.class)
     public Result<Void> handleBizException(BizException e) {

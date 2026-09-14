@@ -280,7 +280,17 @@ public class SecurityFilter implements GlobalFilter, Ordered {
                     
                     return chain.filter(exchange.mutate().request(mutatedRequest).build());
                 })
-                .switchIfEmpty(chain.filter(exchange));
+                .switchIfEmpty(Mono.defer(() -> {
+                    // 空 body：原 body 流已在本过滤器被订阅过，直接透传原 exchange 会导致下游
+                    // 重复订阅抛 IllegalStateException: COMPLETED，这里换空 body 装饰器
+                    ServerHttpRequest emptyBodyRequest = new ServerHttpRequestDecorator(exchange.getRequest()) {
+                        @Override
+                        public Flux<DataBuffer> getBody() {
+                            return Flux.empty();
+                        }
+                    };
+                    return chain.filter(exchange.mutate().request(emptyBodyRequest).build());
+                }));
     }
 
     /**
@@ -354,7 +364,17 @@ public class SecurityFilter implements GlobalFilter, Ordered {
                     
                     return chain.filter(exchange.mutate().request(mutatedRequest).build());
                 })
-                .switchIfEmpty(chain.filter(exchange));
+                .switchIfEmpty(Mono.defer(() -> {
+                    // 空 body：原 body 流已在本过滤器被订阅过，直接透传原 exchange 会导致下游
+                    // 重复订阅抛 IllegalStateException: COMPLETED，这里换空 body 装饰器
+                    ServerHttpRequest emptyBodyRequest = new ServerHttpRequestDecorator(exchange.getRequest()) {
+                        @Override
+                        public Flux<DataBuffer> getBody() {
+                            return Flux.empty();
+                        }
+                    };
+                    return chain.filter(exchange.mutate().request(emptyBodyRequest).build());
+                }));
     }
 
     /**

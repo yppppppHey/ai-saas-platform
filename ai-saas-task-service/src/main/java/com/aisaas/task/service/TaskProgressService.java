@@ -32,6 +32,12 @@ public class TaskProgressService {
     private ScheduledExecutorService heartbeatExecutor;
 
     public TaskProgressService() {
+        // 心跳调度移至 @PostConstruct：构造阶段 @Autowired 字段尚未注入（heartbeatExecutor 为 null），
+        // 在构造器里调用会必然 NPE
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void initHeartbeat() {
         heartbeatExecutor.scheduleAtFixedRate(this::sendHeartbeats, 30, 30, TimeUnit.SECONDS);
     }
 

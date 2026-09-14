@@ -4,7 +4,7 @@ spring:
   cloud:
     nacos:
       config:
-        enabled: true
+        enabled: false
         server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
         namespace: ${NACOS_NAMESPACE:}
         group: ${NACOS_GROUP:DEFAULT_GROUP}

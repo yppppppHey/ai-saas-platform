@@ -10,11 +10,12 @@ spring:
     nacos:
       discovery:
         server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-        namespace: dev
+        namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
       config:
+        enabled: false
         server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-        namespace: dev
+        namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         file-extension: yaml
         shared-configs:
@@ -22,9 +23,9 @@ spring:
             group: DEFAULT_GROUP
             refresh: true
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ai_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/yuping?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
     username: root
-    password: root
+    password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       minimum-idle: 10
@@ -76,3 +77,9 @@ management:
   endpoint:
     health:
       show-details: always
+
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
+  producer:
+    group: user-producer-group
+    send-message-timeout: 3000

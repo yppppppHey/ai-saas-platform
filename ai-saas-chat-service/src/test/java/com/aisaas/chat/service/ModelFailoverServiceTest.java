@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.mock.env.MockEnvironment;
 
 import java.util.List;
 import java.util.Map;
@@ -47,8 +48,10 @@ class ModelFailoverServiceTest {
     @BeforeEach
     void setUp() {
         // 降级链: gpt-4 -> gpt-3.5-turbo,deepseek-chat; 默认降级 deepseek-chat
-        service = new ModelFailoverService(providerFactory,
-                Map.of("gpt-4", "gpt-3.5-turbo,deepseek-chat"), "deepseek-chat");
+        // 构造器现通过 Binder 从 Environment 绑定 ai.failover.chains.* 键值
+        MockEnvironment env = new MockEnvironment();
+        env.setProperty("ai.failover.chains.gpt-4", "gpt-3.5-turbo,deepseek-chat");
+        service = new ModelFailoverService(providerFactory, env, "deepseek-chat");
 
         when(primaryProvider.getProviderName()).thenReturn("openai");
         when(primaryProvider.supportsModel("gpt-4")).thenReturn(true);

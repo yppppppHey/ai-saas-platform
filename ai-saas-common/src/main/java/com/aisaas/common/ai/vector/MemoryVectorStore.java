@@ -2,6 +2,7 @@ package com.aisaas.common.ai.vector;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -13,6 +14,7 @@ import java.util.stream.Collectors;
  * 适用于测试和轻量级应用场景
  */
 @Slf4j
+@Primary
 @Component
 public class MemoryVectorStore implements VectorStore {
 

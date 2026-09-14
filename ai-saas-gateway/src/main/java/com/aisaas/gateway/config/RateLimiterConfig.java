@@ -89,8 +89,11 @@ public class RateLimiterConfig {
 
     /**
      * 复合Key解析器（结合IP和API路径）
+     * 标记 @Primary：SCG 自动装配的 RequestRateLimiter 需要唯一默认 KeyResolver，
+     * 路由中通过 #{@xxx} 按名引用的解析器不受影响
      */
     @Bean
+    @org.springframework.context.annotation.Primary
     public KeyResolver compositeKeyResolver() {
         return exchange -> {
             String ip = exchange.getRequest().getRemoteAddress() != null

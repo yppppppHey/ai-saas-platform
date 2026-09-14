@@ -22,10 +22,24 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
+        <!-- grpc-netty：Qdrant 传递依赖只带 grpc-netty-shaded，而 SCG 的 GrpcSslConfigurer
+             引用 io.grpc.netty.NettyChannelBuilder，缺此 jar 会导致网关启动失败 -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty</artifactId>
+            <version>1.65.1</version>
+        </dependency>
+
         <!-- Spring Cloud LoadBalancer -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+
+        <!-- 熔断器：路由配置里使用了 CircuitBreaker 过滤器，缺失会导致路由刷新失败、网关起不来 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
         </dependency>
 
         <!-- JWT -->

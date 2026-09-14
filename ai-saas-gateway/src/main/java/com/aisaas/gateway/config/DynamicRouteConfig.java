@@ -38,7 +38,9 @@ public class DynamicRouteConfig implements ApplicationEventPublisherAware, Appli
     private static final String ROUTE_GROUP = "DEFAULT_GROUP";
     private static final String DEFAULT_NAMESPACE = "";
 
-    @Autowired
+    // 本地开发禁用 Nacos 配置中心时无 NacosConfigManager bean，注入改为可选，
+    // 为 null 时跳过动态路由加载（路由来自 application.yml 静态配置）
+    @Autowired(required = false)
     private NacosConfigManager nacosConfigManager;
 
     @Autowired
@@ -70,6 +72,10 @@ public class DynamicRouteConfig implements ApplicationEventPublisherAware, Appli
      */
     @PostConstruct
     public void init() {
+        if (nacosConfigManager == null) {
+            log.warn("NacosConfigManager 不可用（配置中心已禁用），跳过动态路由监听，使用静态路由配置");
+            return;
+        }
         try {
             configListener = new Listener() {
                 @Override
@@ -96,6 +102,10 @@ public class DynamicRouteConfig implements ApplicationEventPublisherAware, Appli
      * 加载路由配置
      */
     private void loadRouteConfig() {
+        if (nacosConfigManager == null) {
+            log.warn("NacosConfigManager 不可用（配置中心已禁用），跳过从 Nacos 加载路由");
+            return;
+        }
         try {
             String config = nacosConfigManager.getConfigService()
                     .getConfig(ROUTE_DATA_ID, ROUTE_GROUP, 5000);
