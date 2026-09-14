@@ -7,9 +7,9 @@ spring:
 
   # 数据源配置
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ai_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/yuping?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:root}
+    password: ${MYSQL_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       minimum-idle: 5
@@ -35,6 +35,15 @@ spring:
 
   # RocketMQ配置
   cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+      config:
+        enabled: false
+        import-check:
+          enabled: false
     # OpenFeign 配置：同步调用会阻塞主链路，超时必须短，宁可走降级也不能拖垮对话接口
     openfeign:
       client:
@@ -69,7 +78,7 @@ feign:
   sentinel:
     enabled: true
 
-# AI Provider配置
+# AI Provider配置（含模型智能路由与故障降级，原文件有两个重复的 ai: 顶层键已合并）
 ai:
   provider:
     openai:
@@ -78,6 +87,13 @@ ai:
     deepseek:
       api-key: ${DEEPSEEK_API_KEY:}
       base-url: https://api.deepseek.com/v1
+  failover:
+    default: deepseek-chat
+    chains:
+      gpt-4: gpt-3.5-turbo,deepseek-chat
+      gpt-4-turbo: gpt-3.5-turbo,deepseek-chat
+      gpt-3.5-turbo: deepseek-chat
+      deepseek-chat: gpt-3.5-turbo
 
 # MyBatis Plus配置
 mybatis-plus:
@@ -104,16 +120,6 @@ rocketmq:
   producer:
     group: chat-producer-group
     send-message-timeout: 3000
-
-# 模型智能路由与故障降级
-ai:
-  failover:
-    default: deepseek-chat
-    chains:
-      gpt-4: gpt-3.5-turbo,deepseek-chat
-      gpt-4-turbo: gpt-3.5-turbo,deepseek-chat
-      gpt-3.5-turbo: deepseek-chat
-      deepseek-chat: gpt-3.5-turbo
 
 # 运行监控端点
 management:

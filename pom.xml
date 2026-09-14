@@ -104,6 +104,15 @@
                 <version>${mybatis-plus.version}</version>
             </dependency>
 
+            <!-- MyBatis Spring：强制 3.0.x 以兼容 Spring Boot 3 / Spring 6.1。
+                 否则 2.x 会把 factoryBeanObjectType 设为 String，在上下文刷新时
+                 抛 IllegalArgumentException: Invalid value type for attribute 'factoryBeanObjectType' -->
+            <dependency>
+                <groupId>org.mybatis</groupId>
+                <artifactId>mybatis-spring</artifactId>
+                <version>3.0.3</version>
+            </dependency>
+
             <!-- Redisson -->
             <dependency>
                 <groupId>org.redisson</groupId>

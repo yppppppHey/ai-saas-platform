@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(VerifyCodeNotifier.class)
 public class LoggingVerifyCodeNotifier implements VerifyCodeNotifier {
 
     @Override

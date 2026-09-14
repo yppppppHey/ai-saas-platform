@@ -91,6 +91,8 @@ public class LangChain4jConfig {
 
     /**
      * 创建 Qdrant Embedding Store
+     * Qdrant 不可用时回退到内存实现（langchain4j 自动配置的 contentRetriever 要求非 null 的
+     * EmbeddingStore bean，返回 null 会导致整个容器启动失败）
      */
     @Bean
     public EmbeddingStore embeddingStore() {
@@ -106,9 +108,20 @@ public class LangChain4jConfig {
 
             return builder.build();
         } catch (Exception e) {
-            log.error("Failed to create Qdrant embedding store", e);
-            return null;
+            log.warn("Qdrant 不可用, 回退到 InMemoryEmbeddingStore: {}", e.getMessage());
+            return new dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore<>();
         }
+    }
+
+    /**
+     * 自定义 ContentRetriever：本地未配置 embedding 模型/Qdrant 时返回空结果检索器。
+     * langchain4j RagAutoConfig 的同名 bean 带 @ConditionalOnMissingBean，此处定义后自动退避，
+     * 避免其对 embeddingModel/embeddingStore 的非空校验导致容器启动失败。
+     */
+    @Bean
+    public ContentRetriever contentRetriever() {
+        log.warn("本地未配置 embedding 模型, 使用空实现 ContentRetriever（检索返回空结果）");
+        return query -> new java.util.ArrayList<>();
     }
 
     /**

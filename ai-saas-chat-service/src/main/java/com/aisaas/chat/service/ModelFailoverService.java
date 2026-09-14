@@ -6,11 +6,15 @@ import com.aisaas.common.ai.provider.AIProvider;
 import com.aisaas.common.ai.provider.AIProviderFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,16 +46,18 @@ public class ModelFailoverService {
     private final List<String> defaultChain;
 
     public ModelFailoverService(AIProviderFactory providerFactory,
-                                @Value("${ai.failover.chains:}") Map<String, String> chainConfig,
+                                Environment environment,
                                 @Value("${ai.failover.default:deepseek-chat}") String defaultFallback) {
         this.providerFactory = providerFactory;
-        if (chainConfig != null) {
-            chainConfig.forEach((model, fallbacks) -> {
-                if (StringUtils.hasText(fallbacks)) {
-                    chains.put(model, split(fallbacks));
-                }
-            });
-        }
+        // @Value 无法把嵌套 YAML map 注入为 Map，这里用 Binder API 绑定 ai.failover.chains.* 键值
+        Map<String, String> chainConfig = Binder.get(environment)
+                .bind("ai.failover.chains", Bindable.mapOf(String.class, String.class))
+                .orElseGet(Collections::emptyMap);
+        chainConfig.forEach((model, fallbacks) -> {
+            if (StringUtils.hasText(fallbacks)) {
+                chains.put(model, split(fallbacks));
+            }
+        });
         this.defaultChain = split(defaultFallback);
         log.info("模型降级链配置完成: {} 组, 默认降级: {}", chains.size(), defaultChain);
     }

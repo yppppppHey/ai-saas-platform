@@ -40,21 +40,8 @@ public class RagConfig {
         return new SemanticChunker(1000, 100);
     }
 
-    /**
-     * 配置固定大小分块器
-     */
-    @Bean
-    public TextChunker fixedSizeChunker() {
-        return new FixedSizeChunker(1000, 100);
-    }
-
-    /**
-     * 配置递归分块器
-     */
-    @Bean
-    public TextChunker recursiveChunker() {
-        return new RecursiveChunker(1000, 100);
-    }
+    // fixedSizeChunker / recursiveChunker 已删除：common 里的 FixedSizeChunker/RecursiveChunker
+    // 本身是 @Component（扫描 com.aisaas.common 时注册），此处再定义同名 @Bean 会 BeanDefinitionOverrideException
 
     /**
      * 复合文档解析器

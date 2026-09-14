@@ -9,6 +9,10 @@ spring:
   main:
     web-application-type: reactive
     allow-bean-definition-overriding: true
+  autoconfigure:
+    exclude:
+      # 纯网关不需要数据源；common 传递的 JDBC 类会误触发 DataSource 自动配置
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
   cloud:
     gateway:
       enabled: true
@@ -27,11 +31,12 @@ spring:
           filters:
             - StripPrefix=1
       routes:
-        # 用户服务路由
+        # 用户服务路由（原 /api/v1/** 前缀与控制器实际路径不符，已对齐 /api/auth 等）
+        # 诊断期临时移除 CircuitBreaker 过滤器以暴露下游真实异常
         - id: user-service
           uri: lb://ai-saas-user-service
           predicates:
-            - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/roles/**, /api/v1/permissions/**
+            - Path=/api/auth/**, /api/user/**, /api/role/**, /api/permission/**, /api/vip/**, /api/quota/**
           filters:
             - StripPrefix=0
             - name: Retry
@@ -39,16 +44,12 @@ spring:
                 retries: 3
                 statuses: SERVICE_UNAVAILABLE
                 methods: GET
-            - name: CircuitBreaker
-              args:
-                name: userServiceCircuitBreaker
-                fallbackUri: forward:/fallback/user
 
-        # 对话服务路由
+        # 对话服务路由（补齐 ai-chat / prompt-templates 实际路径）
         - id: chat-service
           uri: lb://ai-saas-chat-service
           predicates:
-            - Path=/api/v1/chat/**, /api/v1/conversations/**, /api/v1/messages/**
+            - Path=/api/v1/ai-chat/**, /api/v1/chat/**, /api/v1/conversations/**, /api/v1/messages/**, /api/v1/prompt-templates/**
           filters:
             - StripPrefix=0
             - name: Retry
@@ -86,11 +87,11 @@ spring:
                 rate-limiter: "#{@userRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
 
-        # RAG服务路由
+        # RAG服务路由（对齐 knowledge-bases / rag 实际路径）
         - id: rag-service
           uri: lb://ai-saas-rag-service
           predicates:
-            - Path=/api/v1/kb/**, /api/v1/documents/**
+            - Path=/api/v1/knowledge-bases/**, /api/v1/kb/**, /api/v1/documents/**, /api/v1/rag/**
           filters:
             - StripPrefix=0
             - name: Retry
@@ -103,11 +104,11 @@ spring:
                 name: ragServiceCircuitBreaker
                 fallbackUri: forward:/fallback/rag
 
-        # 计费服务路由
+        # 计费服务路由（对齐 /billing/token 实际路径）
         - id: billing-service
           uri: lb://ai-saas-billing-service
           predicates:
-            - Path=/api/v1/billing/**, /api/v1/quota/**, /api/v1/token/**
+            - Path=/api/v1/billing/**, /api/v1/quota/**, /api/v1/token/**, /billing/**
           filters:
             - StripPrefix=0
             - name: Retry
@@ -153,14 +154,11 @@ spring:
             - StripPrefix=0
 
       # 全局默认过滤器
+      # 说明：原全局 RequestRateLimiter 已移除——SCG 4.1.2 的 RedisRateLimiter 在响应提交后
+      # 往只读 headers 写 X-RateLimit-*（Tomcat reactive 下必抛 UnsupportedOperationException），
+      # 会干扰熔断器误触发兜底。限流改由各路由自行配置。
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
-        - name: RequestRateLimiter
-          args:
-            rate-limiter: "#{@defaultRateLimiter}"
-            key-resolver: "#{@apiKeyResolver}"
-            redis-rate-limiter.replenishRate: 100
-            redis-rate-limiter.burstCapacity: 200
 
       # 跨域配置
       globalcors:
@@ -182,11 +180,21 @@ spring:
           version: 1.0.0
           protocol: http
       config:
+        enabled: false
         server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
         namespace: ${NACOS_NAMESPACE:}
         group: ${NACOS_GROUP:DEFAULT_GROUP}
         file-extension: yaml
         import-check:
+          enabled: false
+
+    # 禁用 Sentinel 的 Spring Cloud CircuitBreaker 集成：
+    # 它会抢占 ReactiveCircuitBreakerFactory（@ConditionalOnMissingBean），导致 resilience4j 工厂退避、
+    # 路由里的 CircuitBreaker 过滤器无法注册，网关启动失败。路由熔断由 resilience4j 提供。
+    circuitbreaker:
+      sentinel:
+        enabled: false
+        reactive:
           enabled: false
 
     # Sentinel配置
@@ -197,24 +205,14 @@ spring:
         fallback:
           mode: response
           response-body: '{"code":429,"message":"系统繁忙，请稍后再试","data":null}'
-      datasource:
-        flow:
-          nacos:
-            server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-            dataId: ${spring.application.name}-flow-rules
-            groupId: SENTINEL_GROUP
-            rule-type: flow
-        degrade:
-          nacos:
-            server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-            dataId: ${spring.application.name}-degrade-rules
-            groupId: SENTINEL_GROUP
-            rule-type: degrade
+      # 说明：原 sentinel.datasource.flow/degrade 的 Nacos 规则数据源已移除——
+      # 1) classpath 缺 sentinel-datasource-nacos 会启动失败；2) 其依赖 Nacos 配置中心（本地禁用）。
+      # 本地限流/熔断规则走代码内默认配置即可。
 
-  # 配置文件导入
-  config:
-    import:
-      - optional:nacos:ai-saas-gateway.yaml
+  # 配置文件导入（本地开发：已禁用 Nacos 配置中心，使用本地 application.yml，故注释掉 Nacos import）
+  # config:
+  #   import:
+  #     - optional:nacos:ai-saas-gateway.yaml
 
 # JWT配置
 jwt:
@@ -252,6 +250,7 @@ gateway:
     slow-request-threshold: 1000
   whitelist:
     - /api/v1/auth/**
+    - /api/auth/**
     - /api/v1/users/register
     - /actuator/**
     - /health
@@ -298,6 +297,12 @@ management:
         http.server.requests: true
       percentiles:
         http.server.requests: 0.5, 0.75, 0.95, 0.99
+
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
+  producer:
+    group: gateway-producer-group
+    send-message-timeout: 3000
 
 ---
 spring:

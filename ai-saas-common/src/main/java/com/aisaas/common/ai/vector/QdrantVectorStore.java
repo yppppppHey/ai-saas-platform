@@ -58,8 +58,11 @@ public class QdrantVectorStore implements VectorStore {
             log.info("Successfully connected to Qdrant at {}:{}", qdrantHost, qdrantPort);
 
         } catch (Exception e) {
-            log.error("Failed to connect to Qdrant at {}:{}", qdrantHost, qdrantPort, e);
-            throw new RuntimeException("Failed to initialize Qdrant connection", e);
+            // 本地开发环境往往没有 Qdrant 实例；连不上时降级为不可用（client=null），
+            // 不影响 Spring 容器启动，RAG 会自动回退到内存版 VectorStore。
+            log.warn("Qdrant unavailable at {}:{} — QdrantVectorStore disabled, falling back to in-memory store. ({})",
+                    qdrantHost, qdrantPort, e.getMessage());
+            this.client = null;
         }
     }
 

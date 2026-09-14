@@ -1,20 +1,12 @@
 package com.aisaas.task.config;
 
-import com.baomidou.mybatisplus.annotation.DbType;
-import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
-import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import org.mybatis.spring.annotation.MapperScan;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @MapperScan("com.aisaas.task.mapper")
 public class TaskMybatisPlusConfig {
 
-    @Bean
-    public MybatisPlusInterceptor mybatisPlusInterceptor() {
-        MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
-        return interceptor;
-    }
+    // mybatisPlusInterceptor 由 common 的 MyBatisPlusConfig 提供（@ConditionalOnMissingBean 兜底，
+    // 含分页+乐观锁插件）；此处仅保留 @MapperScan，避免与 common 的同名 bean 冲突
 }
