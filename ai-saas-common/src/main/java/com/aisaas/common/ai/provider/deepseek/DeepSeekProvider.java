@@ -8,6 +8,7 @@ import com.aisaas.common.ai.provider.AbstractAIProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -33,14 +34,10 @@ public class DeepSeekProvider extends AbstractAIProvider {
             "deepseek-v2.5"
     };
 
-    public DeepSeekProvider() {
-        super(
-                System.getenv().getOrDefault("DEEPSEEK_API_KEY", ""),
-                System.getenv().getOrDefault("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
-        );
-    }
-
-    public DeepSeekProvider(String apiKey, String baseUrl) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public DeepSeekProvider(
+            @org.springframework.beans.factory.annotation.Value("${ai.provider.deepseek.api-key:${DEEPSEEK_API_KEY:}}") String apiKey,
+            @org.springframework.beans.factory.annotation.Value("${ai.provider.deepseek.base-url:${DEEPSEEK_BASE_URL:https://api.deepseek.com/v1}}") String baseUrl) {
         super(apiKey, baseUrl);
     }
 
@@ -141,7 +138,7 @@ public class DeepSeekProvider extends AbstractAIProvider {
                             .index(choiceNode.path("index").asInt())
                             .finishReason(choiceNode.path("finish_reason").asText());
 
-                    // Parse message
+                    // Parse message（非流式响应）
                     JsonNode messageNode = choiceNode.path("message");
                     if (!messageNode.isMissingNode()) {
                         ChatResponse.Message message = ChatResponse.Message.builder()
@@ -150,6 +147,17 @@ public class DeepSeekProvider extends AbstractAIProvider {
                                 .name(messageNode.path("name").isMissingNode() ? null : messageNode.path("name").asText())
                                 .build();
                         choiceBuilder.message(message);
+                    }
+
+                    // Parse delta（流式 SSE chunk 用 delta 字段）
+                    JsonNode deltaNode = choiceNode.path("delta");
+                    if (!deltaNode.isMissingNode()) {
+                        ChatResponse.Message delta = ChatResponse.Message.builder()
+                                .role(deltaNode.path("role").asText())
+                                .content(deltaNode.path("content").asText())
+                                .name(deltaNode.path("name").isMissingNode() ? null : deltaNode.path("name").asText())
+                                .build();
+                        choiceBuilder.delta(delta);
                     }
 
                     choices.add(choiceBuilder.build());
@@ -280,14 +288,24 @@ public class DeepSeekProvider extends AbstractAIProvider {
         return webClient.post()
                 .uri("/chat/completions")
                 .bodyValue(requestBody)
+                .accept(org.springframework.http.MediaType.TEXT_EVENT_STREAM)
                 .retrieve()
-                .bodyToFlux(String.class)
-                .map(line -> {
-                    ChatResponse response = parseStreamChatResponse(line);
-                    if (response == null) {
-                        response = ChatResponse.builder().build();
+                // SSE 解码：每个 data: 事件作为一个 ServerSentEvent，data() 即裸 JSON
+                .bodyToFlux(new org.springframework.core.ParameterizedTypeReference<org.springframework.http.codec.ServerSentEvent<String>>() {})
+                .map(sse -> {
+                    String jsonData = sse != null ? sse.data() : null;
+                    if (jsonData == null || !StringUtils.hasText(jsonData)) {
+                        return ChatResponse.builder().build();
                     }
-                    return response;
+                    jsonData = jsonData.trim();
+                    if ("[DONE]".equals(jsonData)) {
+                        return ChatResponse.builder().object("chat.completion.chunk").build();
+                    }
+                    ChatResponse response = parseChatResponse(jsonData);
+                    if (response != null) {
+                        response.setProvider(PROVIDER_NAME);
+                    }
+                    return response != null ? response : ChatResponse.builder().build();
                 })
                 .onErrorResume(e -> {
                     log.error("DeepSeek stream chat error", e);
@@ -299,5 +317,4 @@ public class DeepSeekProvider extends AbstractAIProvider {
                             .build());
                 });
     }
-
 }

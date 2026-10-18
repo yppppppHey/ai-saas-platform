@@ -8,6 +8,7 @@ import com.aisaas.common.util.JsonUtils;
 import com.aisaas.task.engine.context.TaskExecutionContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -20,6 +21,12 @@ public class ReportTaskProcessor extends AbstractTaskProcessor {
 
     @Autowired
     private AIProviderFactory providerFactory;
+
+    @Value("${ai.provider.default:openai}")
+    private String defaultProvider;
+
+    @Value("${ai.model.default:gpt-3.5-turbo}")
+    private String defaultModel;
 
     @Override
     public String getTaskType() {
@@ -93,9 +100,9 @@ public class ReportTaskProcessor extends AbstractTaskProcessor {
             updateProgress(context, 60, "调用AI生成报告");
             
             // 调用AI
-            AIProvider provider = providerFactory.getProvider("openai");
+            AIProvider provider = providerFactory.getProvider(defaultProvider);
             ChatRequest request = ChatRequest.builder()
-                .model("gpt-3.5-turbo")
+                .model(defaultModel)
                 .messages(Collections.singletonList(
                     ChatRequest.Message.builder()
                         .role("user")

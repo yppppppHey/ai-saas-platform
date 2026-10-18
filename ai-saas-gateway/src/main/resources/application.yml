@@ -61,10 +61,6 @@ spring:
               args:
                 name: chatServiceCircuitBreaker
                 fallbackUri: forward:/fallback/chat
-            - name: RequestRateLimiter
-              args:
-                rate-limiter: "#{@userRateLimiter}"
-                key-resolver: "#{@userKeyResolver}"
 
         # 任务服务路由
         - id: task-service
@@ -82,10 +78,6 @@ spring:
               args:
                 name: taskServiceCircuitBreaker
                 fallbackUri: forward:/fallback/task
-            - name: RequestRateLimiter
-              args:
-                rate-limiter: "#{@userRateLimiter}"
-                key-resolver: "#{@userKeyResolver}"
 
         # RAG服务路由（对齐 knowledge-bases / rag 实际路径）
         - id: rag-service
@@ -111,6 +103,23 @@ spring:
             - Path=/api/v1/billing/**, /api/v1/quota/**, /api/v1/token/**, /billing/**
           filters:
             - StripPrefix=0
+            - name: Retry
+              args:
+                retries: 3
+                statuses: SERVICE_UNAVAILABLE
+                methods: GET
+            - name: CircuitBreaker
+              args:
+                name: billingServiceCircuitBreaker
+                fallbackUri: forward:/fallback/billing
+
+        # 计费服务 API 路由（前端 /api/billing/** → 剥 /api → /billing/**）
+        - id: billing-service-api
+          uri: lb://ai-saas-billing-service
+          predicates:
+            - Path=/api/billing/**
+          filters:
+            - StripPrefix=1
             - name: Retry
               args:
                 retries: 3

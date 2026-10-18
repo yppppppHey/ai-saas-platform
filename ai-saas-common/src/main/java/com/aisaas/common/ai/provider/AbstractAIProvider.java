@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
@@ -155,6 +156,7 @@ public abstract class AbstractAIProvider implements AIProvider {
         return webClient.post()
                 .uri("/chat/completions")
                 .bodyValue(requestBody)
+                .accept(org.springframework.http.MediaType.TEXT_EVENT_STREAM)
                 .retrieve()
                 .onStatus(
                         status -> status.isError(),
@@ -162,22 +164,25 @@ public abstract class AbstractAIProvider implements AIProvider {
                                 .flatMap(errorBody -> Mono.error(new RuntimeException(
                                         "API Error: " + clientResponse.statusCode() + " - " + errorBody)))
                 )
-                .bodyToFlux(String.class)
-                .filter(line -> !line.trim().isEmpty())
-                .map(line -> {
+                // SSE 解码：ServerSentEvent.data() 即每个 data: 后的裸 JSON
+                .bodyToFlux(new org.springframework.core.ParameterizedTypeReference<org.springframework.http.codec.ServerSentEvent<String>>() {})
+                .map(sse -> {
                     try {
-                        if (line.startsWith("data: ")) {
-                            String jsonData = line.substring(6);
-                            if ("[DONE]".equals(jsonData.trim())) {
-                                return null;
-                            }
-                            ChatResponse response = parseStreamChatResponse(jsonData);
-                            response.setProvider(getProviderName());
-                            return response;
+                        String jsonData = sse != null ? sse.data() : null;
+                        if (jsonData == null || !StringUtils.hasText(jsonData)) {
+                            return null;
                         }
-                        return null;
+                        jsonData = jsonData.trim();
+                        if ("[DONE]".equals(jsonData)) {
+                            return null;
+                        }
+                        ChatResponse response = parseStreamChatResponse(jsonData);
+                        if (response != null) {
+                            response.setProvider(getProviderName());
+                        }
+                        return response;
                     } catch (Exception e) {
-                        log.error("Failed to parse stream response: {}", line, e);
+                        log.error("Failed to parse stream response: {}", e.getMessage(), e);
                         return null;
                     }
                 })

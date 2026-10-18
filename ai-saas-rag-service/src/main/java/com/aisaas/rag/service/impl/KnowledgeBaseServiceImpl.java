@@ -9,6 +9,7 @@ import com.aisaas.rag.entity.RagKnowledgeBase;
 import com.aisaas.rag.mapper.RagKnowledgeBaseMapper;
 import com.aisaas.rag.service.KnowledgeBaseService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -31,7 +32,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<KbResponseDTO> createKb(KbCreateDTO dto, Long userId) {
-        String kbId = "kb_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
+        String kbId = String.valueOf(IdWorker.getId()); // 数字ID，与 rag_document.kb_id(bigint) 对齐
 
         RagKnowledgeBase kb = new RagKnowledgeBase();
         kb.setKbId(kbId);

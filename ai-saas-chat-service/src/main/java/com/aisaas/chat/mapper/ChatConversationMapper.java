@@ -58,12 +58,6 @@ public interface ChatConversationMapper extends BaseMapper<ChatConversation> {
                           @Param("lastMessagePreview") String lastMessagePreview);
 
     /**
-     * 增加Token使用量
-     */
-    @Update("UPDATE chat_conversation SET token_usage = token_usage + #{tokens}, updated_at = NOW() WHERE id = #{id}")
-    int incrementTokenUsage(@Param("id") Long id, @Param("tokens") Long tokens);
-
-    /**
      * 查询会话详情
      */
     @Select("SELECT * FROM chat_conversation WHERE id = #{id} AND is_deleted = 0")
@@ -91,7 +85,7 @@ public interface ChatConversationMapper extends BaseMapper<ChatConversation> {
      * 增加Token使用量
      */
     @Update("UPDATE chat_conversation SET token_usage = token_usage + #{tokens}, updated_at = NOW() WHERE id = #{conversationId}")
-    int incrementTokenUsage(@Param("conversationId") Long conversationId, @Param("tokens") Integer tokens);
+    int incrementTokenUsage(@Param("conversationId") Long conversationId, @Param("tokens") long tokens);
 
     /**
      * 置顶会话

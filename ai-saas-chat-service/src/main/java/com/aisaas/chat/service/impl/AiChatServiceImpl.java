@@ -388,7 +388,7 @@ public class AiChatServiceImpl implements AiChatService {
                                 .build());
 
                         // 完成SSE
-                        emitter.complete();
+                        completeEmitterSafely(emitter);
                     })
                     .doOnError(error -> {
                         log.error("流式对话失败", error);
@@ -422,8 +422,9 @@ public class AiChatServiceImpl implements AiChatService {
             emitter.send(SseEmitter.event()
                     .name(eventName)
                     .data(data));
-        } catch (IOException e) {
-            log.warn("发送SSE事件失败", e);
+        } catch (Exception e) {
+            // 客户端已断开/连接已关闭时 send 抛 IllegalStateException，属正常收尾，仅记录
+            log.warn("发送SSE事件失败: event={}, err={}", eventName, e.getMessage());
         }
     }
 
@@ -433,12 +434,22 @@ public class AiChatServiceImpl implements AiChatService {
             emitter.send(SseEmitter.event()
                     .name("error")
                     .data(errorResponse));
-            emitter.complete();
-        } catch (IOException e) {
-            log.warn("发送错误事件失败", e);
+        } catch (Exception e) {
+            log.warn("发送SSE错误事件失败: err={}", e.getMessage());
         }
+        completeEmitterSafely(emitter);
     }
 
+    /**
+     * 安全完成 SSE：连接可能已被客户端关闭，重复 complete 会抛 IllegalStateException，统一吞掉
+     */
+    private void completeEmitterSafely(SseEmitter emitter) {
+        try {
+            emitter.complete();
+        } catch (Exception e) {
+            log.warn("SSE连接已完成或已关闭: err={}", e.getMessage());
+        }
+    }
     // ==================== 私有辅助方法 ====================
 
     private ChatConversation getAndValidateConversation(Long userId, Long conversationId) {

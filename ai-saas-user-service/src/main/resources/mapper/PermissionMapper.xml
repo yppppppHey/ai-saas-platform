@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aisaas.user.mapper.PermissionMapper">
+
+    <resultMap id="BaseResultMap" type="com.aisaas.user.entity.Permission">
+        <id column="id" property="id"/>
+        <result column="permission_code" property="permissionCode"/>
+        <result column="permission_name" property="permissionName"/>
+        <result column="description" property="description"/>
+        <result column="permission_type" property="permissionType"/>
+        <result column="resource" property="resource"/>
+        <result column="method" property="method"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="sort" property="sort"/>
+        <result column="status" property="status"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+    <sql id="Alias_Column_List">
+        p.id, p.permission_code, p.permission_name, p.description, p.permission_type,
+        p.resource, p.method, p.parent_id, p.sort, p.status,
+        p.created_at, p.updated_at, p.is_deleted
+    </sql>
+
+    <select id="selectPermissionsByRoleId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Alias_Column_List"/>
+        FROM user_permission p
+        JOIN user_role_permission rp ON p.id = rp.permission_id
+        WHERE rp.role_id = #{roleId}
+          AND rp.is_deleted = 0
+          AND p.is_deleted = 0
+        ORDER BY p.sort
+    </select>
+
+    <select id="selectPermissionsByUserId" resultMap="BaseResultMap">
+        SELECT DISTINCT
+        <include refid="Alias_Column_List"/>
+        FROM user_permission p
+        JOIN user_role_permission rp ON p.id = rp.permission_id
+        JOIN user_role_relation ur ON rp.role_id = ur.role_id
+        WHERE ur.user_id = #{userId}
+          AND ur.is_deleted = 0
+          AND rp.is_deleted = 0
+          AND p.is_deleted = 0
+        ORDER BY p.sort
+    </select>
+
+</mapper>

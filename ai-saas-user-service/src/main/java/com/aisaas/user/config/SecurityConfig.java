@@ -37,8 +37,10 @@ public class SecurityConfig {
                     "/v3/api-docs/**",
                     "/actuator/**"
                 ).permitAll()
-                // 其他请求需要认证
-                .anyRequest().authenticated()
+                // 统一由网关 JwtAuthenticationFilter 做认证鉴权，
+                // 本服务 JwtAuthenticationInterceptor 再对 Authorization 二次校验并注入 userId，
+                // 因此此处放行业务路径（与 chat/task/rag/billing 的信任边界保持一致）
+                .anyRequest().permitAll()
             );
         
         return http.build();

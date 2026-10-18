@@ -34,6 +34,9 @@ public class LangChain4jConfig {
     @Value("${openai.model:gpt-3.5-turbo}")
     private String openaiModel;
 
+    @Value("${openai.embedding-model:${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}}")
+    private String openaiEmbeddingModel;
+
     @Value("${openai.timeout-seconds:60}")
     private int openaiTimeoutSeconds;
 
@@ -82,7 +85,7 @@ public class LangChain4jConfig {
         return OpenAiEmbeddingModel.builder()
                 .apiKey(openaiApiKey)
                 .baseUrl(openaiBaseUrl)
-                .modelName("text-embedding-3-small")
+                .modelName(openaiEmbeddingModel)
                 .timeout(Duration.ofSeconds(30))
                 .logRequests(false)
                 .logResponses(false)
