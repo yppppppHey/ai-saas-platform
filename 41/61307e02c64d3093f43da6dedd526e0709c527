@@ -1,0 +1,38 @@
+README.md
+  s_4fbef786b478ef::t_37ae5353db8e0a 130
+  s_4fbef786b478ef::t_abb7c0682d6d83 61,70,76,79-84
+  s_4fbef786b478ef::t_948f70ea99aef6 98
+  s_4fbef786b478ef::t_637858401ff5ae 19,23
+  s_4fbef786b478ef::t_1fb6c026b2bf0a 108-124
+backend/Dockerfile
+  s_4fbef786b478ef::t_4a1e229c110a71 3-4
+启动说明.md
+  s_4fbef786b478ef::t_98c7064da1794d 96
+  s_4fbef786b478ef::t_31931eaa00fd1b 125-126
+  s_4fbef786b478ef::t_4e67d97c03f9b6 30
+  s_4fbef786b478ef::t_555f96bcb153da 24
+  s_4fbef786b478ef::t_fc8f8d99375727 46
+  s_4fbef786b478ef::t_164daee3d25698 92
+.github/workflows/ci.yml
+  s_4fbef786b478ef::t_208ebaed8d692f 47
+  s_4fbef786b478ef::t_3197fd79f262f3 30
+docs/MySQL优化案例-会话列表分页索引.md
+  s_4fbef786b478ef::t_213388a90cef7e 99
+  s_4fbef786b478ef::t_32f5c3fe4a13be 22,100-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4161307e02c64d3093f43da6dedd526e0709c527",
+  "prompts": {},
+  "sessions": {
+    "s_4fbef786b478ef": {
+      "agent_id": {
+        "tool": "codefuse",
+        "id": "6bb93911-3a5d-46a7-9f38-3480bd9b6969",
+        "model": "codefuse_official_channel/GLM-5.3"
+      },
+      "human_author": "muqing <muqing@antgroup.com>"
+    }
+  }
+}
