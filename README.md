@@ -16,11 +16,11 @@
 
 ## 系统架构
 
-网关 + 6 个业务微服务 + 1 个前端应用，按业务域垂直拆分：
+网关 + 6 个业务微服务 + 1 个前端应用，按业务域垂直拆分（后端代码位于 `backend/`，前端位于 `frontend/`）：
 
 | 模块 | 端口 | 职责 |
 |---|---|---|
-| `ai-saas-frontend` | 5173（dev） | Vue3 前端：登录注册、SSE 流式对话、异步任务、用量计费图表；dev 模式 `/api` 由 Vite 代理至网关 8080 |
+| `frontend` | 5173（dev） | Vue3 前端：登录注册、SSE 流式对话、异步任务、用量计费图表；dev 模式 `/api` 由 Vite 代理至网关 8080 |
 | `ai-saas-gateway` | 8080 | 统一接入：JWT 鉴权、IP 黑白名单、限流熔断、可信身份传播、traceId 全链路透传 |
 | `ai-saas-user-service` | 8081 | 注册登录、验证码、OAuth 绑定、用户资料；用户缓存 + 布隆过滤器 |
 | `ai-saas-chat-service` | 8082 | SSE 流式对话、多模型抽象与故障降级、会话管理 |
@@ -58,6 +58,7 @@
 ### 1. 启动基础设施
 
 ```bash
+cd backend
 docker compose up -d
 ```
 
@@ -66,20 +67,21 @@ docker compose up -d
 ### 2. 构建
 
 ```bash
+cd backend
 mvn clean package -DskipTests
 ```
 
 ### 3. 启动服务
 
-各模块启动类位于 `ai-saas-<module>/src/main/java` 下，按依赖顺序启动（业务服务可并行，网关最后）：
+各模块启动类位于 `backend/ai-saas-<module>/src/main/java` 下，按依赖顺序启动（业务服务可并行，网关最后）：
 
 ```bash
-java -jar ai-saas-user-service/target/ai-saas-user-service-1.0.0-SNAPSHOT.jar
-java -jar ai-saas-chat-service/target/ai-saas-chat-service-1.0.0-SNAPSHOT.jar
-java -jar ai-saas-task-service/target/ai-saas-task-service-1.0.0-SNAPSHOT.jar
-java -jar ai-saas-billing-service/target/ai-saas-billing-service-1.0.0-SNAPSHOT.jar
-java -jar ai-saas-rag-service/target/ai-saas-rag-service-1.0.0-SNAPSHOT.jar
-java -jar ai-saas-gateway/target/ai-saas-gateway-1.0.0-SNAPSHOT.jar
+java -jar backend/ai-saas-user-service/target/ai-saas-user-service-1.0.0-SNAPSHOT.jar
+java -jar backend/ai-saas-chat-service/target/ai-saas-chat-service-1.0.0-SNAPSHOT.jar
+java -jar backend/ai-saas-task-service/target/ai-saas-task-service-1.0.0-SNAPSHOT.jar
+java -jar backend/ai-saas-billing-service/target/ai-saas-billing-service-1.0.0-SNAPSHOT.jar
+java -jar backend/ai-saas-rag-service/target/ai-saas-rag-service-1.0.0-SNAPSHOT.jar
+java -jar backend/ai-saas-gateway/target/ai-saas-gateway-1.0.0-SNAPSHOT.jar
 ```
 
 ### 4. 健康检查
@@ -93,7 +95,7 @@ curl http://localhost:8081/actuator/health   # 用户服务
 ### 5. 启动前端
 
 ```bash
-cd ai-saas-frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -103,25 +105,29 @@ npm run dev
 ## 目录结构
 
 ```
-ai-saas-backend-platform/
-├── ai-saas-gateway/          # 统一网关
-├── ai-saas-user-service/     # 用户域
-├── ai-saas-chat-service/     # 对话域
-├── ai-saas-task-service/     # 异步任务
-├── ai-saas-billing-service/  # 计费域
-├── ai-saas-rag-service/      # 知识库 RAG
-├── ai-saas-admin-service/    # 管理端（预留）
-├── ai-saas-common/           # 公共组件
-├── ai-saas-frontend/          # Vue3 前端（Vite + Element Plus）
-├── docker/mysql/init/        # MySQL 初始化脚本
-├── .github/workflows/        # CI
-└── docs/                     # 设计文档与性能案例
+ai-saas-platform/
+├── backend/                      # 后端（Maven 多模块 + 基础设施）
+│   ├── ai-saas-gateway/          # 统一网关
+│   ├── ai-saas-user-service/     # 用户域
+│   ├── ai-saas-chat-service/     # 对话域
+│   ├── ai-saas-task-service/     # 异步任务
+│   ├── ai-saas-billing-service/  # 计费域
+│   ├── ai-saas-rag-service/      # 知识库 RAG
+│   ├── ai-saas-admin-service/    # 管理端（预留）
+│   ├── ai-saas-common/           # 公共组件
+│   ├── docker/mysql/init/        # MySQL 初始化脚本
+│   ├── docker-compose.yml        # 本地基础设施
+│   ├── Dockerfile                # 统一多阶段构建
+│   └── pom.xml                   # Maven 父 POM
+├── frontend/                     # Vue3 前端（Vite + Element Plus）
+├── .github/workflows/            # CI
+└── docs/                         # 设计文档与性能案例
 ```
 
 ## 测试
 
 ```bash
-mvn test
+cd backend && mvn test
 ```
 
 43 个单元/集成测试（JUnit 5 + Mockito），含 Spring 上下文缓存失效验证。

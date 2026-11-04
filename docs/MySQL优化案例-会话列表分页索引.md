@@ -19,7 +19,7 @@ ORDER BY is_pinned DESC, last_message_at DESC   -- 置顶优先，再按最近�
 LIMIT 20;
 ```
 
-原始表结构（来自 `chat_init.sql` / `docker/mysql/init/02-chat.sql`）建了 **6 个单列索引**：
+原始表结构（来自 `chat_init.sql` / `backend/docker/mysql/init/02-chat.sql`）建了 **6 个单列索引**：
 
 ```sql
 KEY idx_user_id (user_id),
@@ -96,8 +96,8 @@ KEY idx_user_del_pinned_lm (user_id, is_deleted, is_pinned DESC, last_message_at
 
 | 文件 | 改动 |
 |---|---|
-| `ai-saas-chat-service/src/main/resources/db/chat_init.sql` | 6 单列索引 → `idx_user_del_pinned_lm (user_id, is_deleted, is_pinned DESC, last_message_at DESC)` |
-| `docker/mysql/init/02-chat.sql` | 同上 |
-| `sql/init.sql` | **已删除**：该文件是孤儿且分叉的整库初始化脚本，其中 `chat_conversation` 列定义（如 `model_id`/`temperature`/`context_window`）与权威 `chat_init.sql`/`docker/mysql/init/02-chat.sql` 完全不一致，若误用会建出与实体对不上的旧表；运行服务统一以各模块的 `db/*_init.sql` + `docker/mysql/init/*` 为准，故直接删除该冗余文件 |
+| `backend/ai-saas-chat-service/src/main/resources/db/chat_init.sql` | 6 单列索引 → `idx_user_del_pinned_lm (user_id, is_deleted, is_pinned DESC, last_message_at DESC)` |
+| `backend/docker/mysql/init/02-chat.sql` | 同上 |
+| `sql/init.sql` | **已删除**：该文件是孤儿且分叉的整库初始化脚本，其中 `chat_conversation` 列定义（如 `model_id`/`temperature`/`context_window`）与权威 `chat_init.sql`/`backend/docker/mysql/init/02-chat.sql` 完全不一致，若误用会建出与实体对不上的旧表；运行服务统一以各模块的 `db/*_init.sql` + `backend/docker/mysql/init/*` 为准，故直接删除该冗余文件 |
 
 > 复现脚本与原始输出见仓库 `E:/tmp_mysql_bench/08_real_query.sql` 与 `08_real_query.out`（本地临时实验目录，未提交）。

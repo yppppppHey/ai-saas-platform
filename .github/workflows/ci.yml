@@ -27,6 +27,7 @@ jobs:
           restore-keys: maven-
 
       - name: Run tests
+        working-directory: backend
         run: mvn -B test
 
   docker:
@@ -43,7 +44,7 @@ jobs:
       - name: Build chat-service image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./backend
           build-args: MODULE=ai-saas-chat-service
           push: false
           tags: ai-saas/chat:ci

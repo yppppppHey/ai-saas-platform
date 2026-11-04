@@ -1,6 +1,7 @@
 # =============================================================================
 # 统一多阶段构建（所有服务共用）
-#   docker build --build-arg MODULE=ai-saas-chat-service -t ai-saas/chat:latest .
+#   cd backend && docker build --build-arg MODULE=ai-saas-chat-service -t ai-saas/chat:latest .
+#   （构建上下文须为 backend/ 目录，backend/.dockerignore 才会生效）
 # =============================================================================
 
 # ---- 构建阶段: Maven + JDK17（依赖层缓存优化: 先拷 pom 单独下载依赖）----
