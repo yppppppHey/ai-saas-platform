@@ -44,7 +44,7 @@ spring:
         timeout: 10s
 
 jwt:
-  # 必须与 gateway 的 jwt.secret 保持同一来源(JWT_SECRET)，否则签发的 token 网关验签必失败
+  # 必须与 gateway 的 jwt.secret 保持同一来源(JWT_SECRET)，否则签发的 token 网关验签必失败；默认值仅限本地 demo，生产必须注入强密钥
   secret: ${JWT_SECRET:ai-saas-platform-jwt-secret-key-2024}
   accessExpiration: ${JWT_ACCESS_EXPIRATION:86400}
   refreshExpiration: ${JWT_REFRESH_EXPIRATION:604800}
