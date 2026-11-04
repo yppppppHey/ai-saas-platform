@@ -1,6 +1,6 @@
-# AI SaaS Backend Platform
+# AI SaaS Platform
 
-基于 **Spring Cloud Alibaba** 的企业级 AI SaaS 后端微服务平台，覆盖网关治理、服务间调用、分布式一致性、高并发缓存、数据库性能治理与 RAG 检索增强全链路。
+前后端一体仓库（Monorepo）：后端为基于 **Spring Cloud Alibaba** 的企业级 AI SaaS 微服务平台，前端为 **Vue 3 + Vite** 单页应用，覆盖网关治理、服务间调用、分布式一致性、高并发缓存、数据库性能治理与 RAG 检索增强全链路。
 
 ## 技术栈
 
@@ -11,14 +11,16 @@
 | 数据存储 | MySQL 8 · Redis 7 / Redisson（缓存、分布式锁、布隆过滤器） · Qdrant（向量检索，可选） |
 | 消息队列 | RocketMQ 5.x（异步解耦、事务消息、削峰填谷） |
 | AI 能力 | LangChain4j · OpenAI / DeepSeek · SSE 流式对话 |
+| 前端 | Vue 3 · TypeScript · Vite · Element Plus · Pinia · ECharts · Axios |
 | 工程化 | Maven 多模块 · Docker / docker-compose · GitHub Actions CI |
 
 ## 系统架构
 
-网关 + 6 个业务微服务，按业务域垂直拆分：
+网关 + 6 个业务微服务 + 1 个前端应用，按业务域垂直拆分：
 
 | 模块 | 端口 | 职责 |
 |---|---|---|
+| `ai-saas-frontend` | 5173（dev） | Vue3 前端：登录注册、SSE 流式对话、异步任务、用量计费图表；dev 模式 `/api` 由 Vite 代理至网关 8080 |
 | `ai-saas-gateway` | 8080 | 统一接入：JWT 鉴权、IP 黑白名单、限流熔断、可信身份传播、traceId 全链路透传 |
 | `ai-saas-user-service` | 8081 | 注册登录、验证码、OAuth 绑定、用户资料；用户缓存 + 布隆过滤器 |
 | `ai-saas-chat-service` | 8082 | SSE 流式对话、多模型抽象与故障降级、会话管理 |
@@ -48,6 +50,7 @@
 
 - JDK 17
 - Maven 3.6+
+- Node.js ≥ 20.19（前端构建运行，建议 22 LTS）
 - Docker（用于启动 MySQL / Redis / Nacos / RocketMQ）
 
 ## 快速开始
@@ -87,6 +90,16 @@ curl http://localhost:8081/actuator/health   # 用户服务
 # ... 其余端口见上表
 ```
 
+### 5. 启动前端
+
+```bash
+cd ai-saas-frontend
+npm install
+npm run dev
+```
+
+访问 http://localhost:5173 ，dev 模式下 `/api` 请求由 Vite 代理至网关 8080，无需额外跨域配置。
+
 ## 目录结构
 
 ```
@@ -99,6 +112,7 @@ ai-saas-backend-platform/
 ├── ai-saas-rag-service/      # 知识库 RAG
 ├── ai-saas-admin-service/    # 管理端（预留）
 ├── ai-saas-common/           # 公共组件
+├── ai-saas-frontend/          # Vue3 前端（Vite + Element Plus）
 ├── docker/mysql/init/        # MySQL 初始化脚本
 ├── .github/workflows/        # CI
 └── docs/                     # 设计文档与性能案例

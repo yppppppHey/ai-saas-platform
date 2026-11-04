@@ -8,10 +8,13 @@ target/
 *.iml
 *.ipr
 *.iws
-.vscode/
+/.vscode/
 .settings/
 .classpath
 .project
+
+### 前端 ###
+node_modules/
 
 ### 日志 ###
 *.log
