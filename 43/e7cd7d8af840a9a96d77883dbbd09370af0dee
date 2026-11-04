@@ -1,0 +1,106 @@
+ai-saas-frontend/package.json
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-28
+ai-saas-frontend/tsconfig.node.json
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-23
+ai-saas-frontend/vite.config.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-21
+ai-saas-frontend/src/api/billing.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-31
+ai-saas-frontend/src/api/user.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-23
+ai-saas-frontend/README.md
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 2,4
+  s_4fbef786b478ef::t_c5ae1e56dbcbc9 1,3,5-48
+ai-saas-frontend/src/api/rag.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-43
+ai-saas-frontend/src/assets/vite.svg
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1
+ai-saas-frontend/.env.production
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-2
+ai-saas-frontend/.gitignore
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-24
+ai-saas-frontend/src/stores/user.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-47
+ai-saas-frontend/src/views/dashboard/index.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-458
+ai-saas-frontend/src/views/tasks/index.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-99
+ai-saas-frontend/src/views/settings/index.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-156
+启动说明.md
+  s_4fbef786b478ef::t_3fa2ac521fcc65 128
+  s_4fbef786b478ef::t_44b6a9dbaf563b 14,16
+  s_4fbef786b478ef::t_aeb18828fcde89 90-103
+ai-saas-frontend/public/icons.svg
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-24
+ai-saas-frontend/src/views/knowledge/index.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-505
+ai-saas-frontend/src/api/auth.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-26
+ai-saas-frontend/src/router/index.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-79
+ai-saas-frontend/src/main.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-22
+ai-saas-frontend/src/stores/app.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-12
+ai-saas-frontend/index.html
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-13
+ai-saas-frontend/src/views/chat/index.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-280
+ai-saas-frontend/src/style.css
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-20
+ai-saas-frontend/src/views/error/404.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-24
+ai-saas-frontend/tsconfig.json
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-7
+ai-saas-frontend/src/api/request.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-54
+ai-saas-frontend/src/views/billing/index.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-116
+ai-saas-frontend/src/views/login/index.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-107
+.gitignore
+  s_4fbef786b478ef::t_2ff7803608c224 11,16-17
+  s_4fbef786b478ef::t_9134d1863dd25e 18
+ai-saas-frontend/src/App.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-14
+ai-saas-frontend/src/api/chat.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-118
+ai-saas-frontend/public/favicon.svg
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1
+ai-saas-frontend/src/layouts/DefaultLayout.vue
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-165
+ai-saas-frontend/.env.development
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-2
+README.md
+  s_4fbef786b478ef::t_93e80d6b54399d 53
+  s_4fbef786b478ef::t_c68a832281d6d3 93-102
+  s_4fbef786b478ef::t_5d32bcfd22cf4e 115
+  s_4fbef786b478ef::t_373190ce870d51 1,3
+  s_4fbef786b478ef::t_a4ad80f9847965 14
+  s_4fbef786b478ef::t_db99f7e71cace2 19,23
+ai-saas-frontend/src/api/task.ts
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-26
+ai-saas-frontend/tsconfig.app.json
+  s_4fbef786b478ef::t_ce6f4bc7cf865f 1-18
+ai-saas-frontend/.vscode/extensions.json
+  s_4fbef786b478ef::t_cf51a5905d5b2e 1-3
+ai-saas-frontend/package-lock.json
+  s_4fbef786b478ef::t_a4ab0eeb33d7b4 1-2273
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "43e7cd7d8af840a9a96d77883dbbd09370af0dee",
+  "prompts": {},
+  "sessions": {
+    "s_4fbef786b478ef": {
+      "agent_id": {
+        "tool": "codefuse",
+        "id": "6bb93911-3a5d-46a7-9f38-3480bd9b6969",
+        "model": "codefuse_official_channel/GLM-5.3"
+      },
+      "human_author": "muqing <muqing@antgroup.com>"
+    }
+  }
+}
